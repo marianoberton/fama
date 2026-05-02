@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "description": "Happy path: real WhatsApp incoming message from a contact, account matches, content non-empty. Filter must pass.",
+    "expected": { "pass": true }
+  },
+  "event": "message_created",
+  "id": 1007,
+  "content": "Hola! Me interesa el plan Equipo, ¿cómo es?",
+  "message_type": 0,
+  "created_at": "2026-05-02T13:05:00.000Z",
+  "private": false,
+  "source_id": "wamid.HBgNNTQ5MTE3MjM0MzUwNhUCABIYIDIzNEFCQzEyMzQ1Njc4OTABBA==",
+  "account": { "id": 1, "name": "FOMO" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "conversation": {
+    "id": 4248,
+    "status": "pending",
+    "channel": "Channel::Api",
+    "contact_inbox": { "source_id": "5491172343506" }
+  },
+  "sender": {
+    "id": 91,
+    "type": "contact",
+    "name": "María González",
+    "phone_number": "+5491155556666"
+  },
+  "messages": [
+    {
+      "id": 1007,
+      "content": "Hola! Me interesa el plan Equipo, ¿cómo es?",
+      "message_type": 0,
+      "private": false,
+      "created_at": "2026-05-02T13:05:00.000Z",
+      "sender": {
+        "id": 91,
+        "type": "contact",
+        "name": "María González",
+        "phone_number": "+5491155556666"
+      }
+    }
+  ]
+}

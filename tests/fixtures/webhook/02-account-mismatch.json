@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "Rule 2: account.id in payload doesn't match expected CHATWOOT_ACCOUNT_ID. Path token is valid; rejection comes from the body.",
+    "expected": { "pass": false, "status": 401, "reason": "account_mismatch" }
+  },
+  "event": "message_created",
+  "id": 1002,
+  "content": "Hola",
+  "message_type": 0,
+  "created_at": "2026-05-02T13:01:00.000Z",
+  "private": false,
+  "account": { "id": 999, "name": "OtherTenant" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "conversation": {
+    "id": 4243,
+    "status": "pending",
+    "channel": "Channel::Api"
+  },
+  "sender": {
+    "id": 89,
+    "type": "contact",
+    "name": "Otro"
+  },
+  "messages": [
+    {
+      "id": 1002,
+      "content": "Hola",
+      "message_type": 0,
+      "private": false,
+      "sender": {
+        "id": 89,
+        "type": "contact",
+        "name": "Otro"
+      }
+    }
+  ]
+}

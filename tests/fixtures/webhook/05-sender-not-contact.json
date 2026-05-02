@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "Rule 5: message has incoming type (0) but sender.type is 'user' (a human agent typing in Chatwoot UI), not 'contact'. Ignore with 200.",
+    "expected": { "pass": false, "status": 200, "reason": "sender_not_contact" }
+  },
+  "event": "message_created",
+  "id": 1005,
+  "content": "Te llamamos en 5 min",
+  "message_type": 0,
+  "created_at": "2026-05-02T13:03:00.000Z",
+  "private": true,
+  "account": { "id": 1, "name": "FOMO" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "conversation": {
+    "id": 4246,
+    "status": "open",
+    "channel": "Channel::Api"
+  },
+  "sender": {
+    "id": 7,
+    "type": "user",
+    "name": "Guillermina Berton",
+    "email": "guille@fomologic.com"
+  },
+  "messages": [
+    {
+      "id": 1005,
+      "content": "Te llamamos en 5 min",
+      "message_type": 0,
+      "private": true,
+      "sender": {
+        "id": 7,
+        "type": "user",
+        "name": "Guillermina Berton",
+        "email": "guille@fomologic.com"
+      }
+    }
+  ]
+}
