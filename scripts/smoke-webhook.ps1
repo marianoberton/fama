@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   POSTs each tests/fixtures/webhook/*.json file to
-  <BaseUrl>/api/v1/webhooks/chatwoot/<Token> and prints `<fixture>: <status>`.
+  <BaseUrl>/v1/webhooks/chatwoot/<Token> and prints `<fixture>: <status>`.
 
   Fixtures contain a `_meta` envelope with the expected outcome — that block
   is stripped before sending so the body looks like a real Chatwoot payload.
@@ -45,7 +45,7 @@ if (-not (Test-Path $fixturesDir)) {
     exit 1
 }
 
-$endpoint = "$BaseUrl/api/v1/webhooks/chatwoot/$Token"
+$endpoint = "$BaseUrl/v1/webhooks/chatwoot/$Token"
 Write-Host "POST → $endpoint" -ForegroundColor Cyan
 Write-Host ""
 

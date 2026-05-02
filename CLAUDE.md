@@ -95,7 +95,9 @@ Si una tool intenta aplicar una label fuera de esa lista, debe fallar con Valida
 
 ## Filtrado obligatorio del webhook
 
-El webhook handler en `/api/v1/webhooks/chatwoot/:token` **debe filtrar al inicio** y devolver `200 OK` silencioso para todo lo que no corresponda procesar. Sin este filtro, FAMA recibe `conversation_resolved`, `conversation_updated`, etc., y gasta tokens generando respuestas inválidas.
+El webhook handler en `/v1/webhooks/chatwoot/:token` **debe filtrar al inicio** y devolver `200 OK` silencioso para todo lo que no corresponda procesar. Sin este filtro, FAMA recibe `conversation_resolved`, `conversation_updated`, etc., y gasta tokens generando respuestas inválidas.
+
+> **Nota**: el path NO arranca con `/api/` porque Mastra reserva `/api/*` para sus rutas internas (agents, workflows, openapi). Ver bitácora 2026-05-02.
 
 Reglas de filtrado en orden:
 
@@ -252,7 +254,7 @@ Pasos:
 2. Healthcheck OK en `GET /health`.
 3. Smoke test: enviar 5-10 webhooks simulados (curl con payloads reales) y verificar que respuestas sean correctas. Logs deben estar limpios.
 4. Sentarse con Guille a probar ~20 conversaciones en Mastra Studio.
-5. Recién entonces, en Chatwoot via Rails console: `AgentBot.find(2).update!(outgoing_url: 'https://NUEVO_DOMINIO/api/v1/webhooks/chatwoot/<pathtoken>')`
+5. Recién entonces, en Chatwoot via Rails console: `AgentBot.find(2).update!(outgoing_url: 'https://NUEVO_DOMINIO/v1/webhooks/chatwoot/<pathtoken>')`
 6. Mandar 1-2 mensajes reales desde el WhatsApp personal de Mariano para validar.
 7. **fomo-core viejo queda corriendo en paralelo** (no se apaga) durante 48h.
 8. Si todo bien después de 48h, recién jubilar fomo-core viejo.
@@ -275,5 +277,6 @@ Pasos:
 | Fecha | Cambio |
 |---|---|
 | 2026-05-02 | Documento inicial. v1 en construcción. |
+| 2026-05-02 | Path del webhook cambiado de `/api/v1/webhooks/chatwoot/:token` a `/v1/webhooks/chatwoot/:token`. Razón: `@mastra/core@1.31.0` reserva el prefix `/api/*` para sus rutas internas vía constraint de tipo en `registerApiRoute()` (`node_modules/@mastra/core/dist/server/index.d.ts:16-17`). Como Chatwoot todavía no apunta a este endpoint (fomo-core sigue activo), el cambio no tiene impacto en producción — sólo afecta el `outgoing_url` que se va a configurar en el cutover. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.
