@@ -280,6 +280,48 @@ Pasos:
 
 ---
 
+## Lista de pendientes Mariano (para cerrar v1)
+
+Lo que el código no puede resolver por sí solo. Cuanto antes se haga, antes se puede activar FAMA.
+
+### Contenido de knowledge
+
+- [ ] `src/knowledge/pricing.md` — completar valores reales de Starter / Equipo / Completo / Enterprise (precio, qué incluye, modalidad). Mientras quede TBD el agente va a responder "consultá con el equipo".
+- [ ] `src/knowledge/faqs.md` — completar las 9 respuestas TBD con la postura real (tiempos de implementación, contratos, canales, datos sensibles, integraciones, escalado, capacitaciones, internacional, casos de éxito).
+- [ ] `src/knowledge/sales.md` — refinar argumentario y casos reales si querés (el draft basado en CLAUDE.md ya es funcional).
+
+### Configuración antes de poner en producción
+
+- [ ] Pegar `CHATWOOT_API_TOKEN` real en `.env` (hoy está vacío — sin esto los mensajes salientes van a quedar en log warning, no llegan al cliente).
+- [ ] Si va a ofrecer reuniones, completar `CALENDLY_LINK` con el link real de Cal.com de Mariano. Por ahora el backoffice ya está instruido a NO inventar URL.
+
+### Validación pre-cutover
+
+- [ ] Sentarse con Guille a probar ~20 conversaciones en Mastra Studio (`npm run dev` → http://localhost:4111). Foco en: arrancar conversación, delegación al backoffice, handoff con label correcta, casos límites (consultas fuera de los 3 frentes).
+- [ ] Build local del container y smoke con el script: `docker network create fomo-net; docker compose up --build -d; .\scripts\smoke-webhook.ps1 -Token <real>; docker compose down`. Verificar que los 7 fixtures devuelvan 401/401/200/200/200/200/202.
+- [ ] Deploy al VPS (red `fomo-net` ya existe ahí). `docker compose up -d`.
+- [ ] Mandar 5-10 webhooks simulados con `curl` desde el VPS para confirmar que la red pública resuelve y los logs están limpios.
+
+### Cutover
+
+- [ ] En Chatwoot via Rails console, repuntar el agent bot al endpoint nuevo:
+  ```ruby
+  AgentBot.find(2).update!(outgoing_url: 'https://NUEVO_DOMINIO/v1/webhooks/chatwoot/<CHATWOOT_PATH_TOKEN>')
+  ```
+- [ ] Mandar 1-2 mensajes de prueba desde el WhatsApp personal de Mariano. Verificar que FAMA responde y, si pide humano, que escala bien (label correcta + nota privada + asignación + status open en Chatwoot).
+- [ ] Dejar `fomo-core` viejo corriendo en paralelo durante 48h.
+- [ ] Pasadas las 48h sin incidentes, jubilar `fomo-core`.
+
+### Rollback (si algo se rompe en cualquier paso)
+
+```ruby
+AgentBot.find(2).update!(outgoing_url: 'https://VIEJO_DOMINIO_DE_FOMO_CORE/...')
+```
+
+Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile explícitamente.
+
+---
+
 ## Bitácora de cambios
 
 | Fecha | Cambio |
@@ -289,5 +331,7 @@ Pasos:
 | 2026-05-02 | Reemplazo de la tool custom `delegate-to-backoffice` por el patrón nativo de Mastra (supervisor agents): el recepcionista declara `agents: { backoffice }` + `memory: new Memory({ storage: LibSQLStore })`, Mastra decide la delegación basado en `description` + instructions. Razón: Mastra v1.8+ expone supervisor pattern con memory isolation, fresh thread por delegation, hooks (`onDelegationStart/Complete`) — todo lo que íbamos a reimplementar. Decisión global del proyecto: defaultear a primitivos del framework, sólo escribir custom cuando sea necesario. Deps agregados: `@mastra/memory`, `@mastra/libsql`. Tabla de tools actualizada (4 tools, no 5). Schema de env: `CHATWOOT_API_TOKEN` pasa a opcional (default `''`); la validación se mueve a call-site (`requireChatwootToken()` en `src/lib/chatwoot.ts`), así dev/Studio bootea sin token configurado y el token sólo es exigido cuando una tool real lo necesita (post de mensaje saliente, handoff de Día 3). |
 | 2026-05-02 | Día 3: `chatwoot-handoff` real con 5 llamadas (ack como paso 0 + 4 canónicas). Schema agrega `ackMessage` como input requerido — el agente lo formula y la tool lo postea públicamente antes de los pasos 1-4. Output gana `replyHandled: boolean` para que el webhook handler skipee el post del texto final del agente y no duplique el mensaje al usuario. `step_failed` ahora cubre `0|1|2|3|4|null`. Lock idempotencia 60s en memoria por conversationId, se libera al fallar para permitir reintentos. Lib `src/lib/chatwoot.ts` extendida con `addChatwootLabels`, `assignChatwootTeam`, `toggleChatwootStatus`. Webhook handler en `src/server/webhook.ts` agrega `handoffAlreadyPostedAck()` que recursa sobre `toolResults` y `subAgentToolResults` para detectar el flag. Tests con `globalThis.fetch` mockeado: 6 casos cubren happy path, fallo en paso 0/1/4, idempotent skip, y release de lock al fallar. Total suite: 21/21. |
 | 2026-05-02 | Día 4: knowledge-search real + 6 markdowns en `src/knowledge/` (identity, employees, services, pricing, faqs, sales). Lib `src/lib/knowledge.ts`: parsea cada md por headings `## `, score por substring case+accent-insensitive con stopwords castellanos (que/cual/como/etc) y bonus 5× cuando el match cae en el título de la sección. La tool `knowledge-search` ahora delega a `searchKnowledge(query, limit)`. Path resuelto contra `process.cwd()/src/knowledge` — `mastra dev` y los tests corren desde la raíz; en Docker (Día 5) hay que copiar la carpeta. **Pendiente Mariano**: completar valores TBD en `pricing.md` (precios reales de Starter/Equipo/Completo/Enterprise) y `faqs.md` (respuestas reales a las 9 preguntas). El skeleton refleja la estructura; el agente ya puede operar pero responderá "TBD" o "consultá con el equipo" hasta que se completen. Total suite: 28/28. |
+| 2026-05-02 | Día 5: Docker. `Dockerfile` multi-stage (build → runtime, node:20-alpine), copia `src/knowledge/` al runtime para que `searchKnowledge` resuelva la path cwd-relativa dentro del container. `docker-compose.yml` referencia `fomo-net` como `external: true`, expone 4111, persiste `mastra.db` en named volume `fama-state` montado en `/app/data` con `MASTRA_DB_URL=file:/app/data/mastra.db`. `.dockerignore` excluye node_modules, tests, .agents/.claude (skills), CLAUDE.md y secrets. `MASTRA_DB_URL` agregado al schema de env (default `file:./mastra.db`). Healthcheck del container usa el `/health` **built-in de Mastra** (devuelve `{success:true}` con 200) — confirmado al inspeccionar contra el container, así que no hace falta apiRoute custom. |
+| 2026-05-02 | Día 6-7: cierre de v1. Resto de tareas son operacionales y dependen de Mariano + Guille (ver "Lista de pendientes Mariano"). Código congelado a la espera de validación en Studio + smoke contra Chatwoot real antes del cutover. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.
