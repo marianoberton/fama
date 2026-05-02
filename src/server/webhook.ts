@@ -60,15 +60,23 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
       maxSteps: 8,
     });
 
+    const skipFinalPost = handoffAlreadyPostedAck(reply);
+
     logger.info(
       {
         conversationId: message.conversationId,
         contactId: message.contactId,
         textLength: reply.text.length,
         steps: reply.steps?.length ?? 0,
+        skipFinalPost,
       },
       'recepcionista responded',
     );
+
+    if (skipFinalPost) {
+      // chatwoot-handoff already posted the public ack; skip the duplicate post.
+      return { status: 202, body: { received: true } };
+    }
 
     try {
       await sendChatwootMessage({
@@ -128,4 +136,33 @@ function extractMessage(body: unknown): ExtractedMessage | null {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Returns true if any tool in the agent's response — direct or nested via
+ * sub-agent delegation — reported `replyHandled: true`. The chatwoot-handoff
+ * tool sets this when it has posted the public ack, so we can skip posting
+ * the supervisor's final text and avoid sending a duplicate message.
+ */
+function handoffAlreadyPostedAck(reply: unknown): boolean {
+  function recurse(toolResults: unknown): boolean {
+    if (!Array.isArray(toolResults)) return false;
+    for (const tr of toolResults) {
+      if (!isObject(tr)) continue;
+      const payload = isObject(tr['payload']) ? tr['payload'] : null;
+      const result = payload && isObject(payload['result']) ? payload['result'] : null;
+      if (result && result['replyHandled'] === true) return true;
+      if (result && recurse(result['subAgentToolResults'])) return true;
+    }
+    return false;
+  }
+  if (!isObject(reply)) return false;
+  if (recurse(reply['toolResults'])) return true;
+  const steps = reply['steps'];
+  if (Array.isArray(steps)) {
+    for (const step of steps) {
+      if (isObject(step) && recurse(step['toolResults'])) return true;
+    }
+  }
+  return false;
 }

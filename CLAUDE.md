@@ -113,23 +113,29 @@ Recién después de esto, invocar al agente.
 
 ## Patrones de la tool `chatwoot-handoff`
 
-Esta es la tool central del sistema. Tiene que ejecutar 4 llamadas a la API de Chatwoot **en orden**, y manejar errores correctamente.
+Esta es la tool central del sistema. Ejecuta **5 llamadas a la API de Chatwoot en orden** (paso 0 = ack público, después los 4 canónicos), y maneja errores correctamente.
+
+**Input**: `{ conversationId, category, ackMessage, reason }`. La tool postea el `ackMessage` por su cuenta (paso 0) — el agente NO debe escribir un mensaje al usuario después de la tool, va a duplicar.
 
 **Orden de llamadas:**
 
-1. `POST /api/v1/accounts/{accountId}/conversations/{conversationId}/labels` con `{ labels: [category] }`
-2. `POST .../messages` con `{ content, private: true, message_type: 'outgoing' }` (la nota privada con el contexto)
+0. `POST .../messages` con `{ content: ackMessage, message_type: 'outgoing', private: false }` (mensaje público al cliente, ANTES del toggle_status — requirement de CLAUDE.md "ack inmediato")
+1. `POST .../labels` con `{ labels: [category] }`
+2. `POST .../messages` con `{ content: reason, private: true, message_type: 'outgoing' }` (nota privada con el contexto formateado)
 3. `POST .../assignments` con `{ team_id: CHATWOOT_TEAM_ID }`
 4. `POST .../toggle_status` con `{ status: 'open' }`
 
-**Por qué en este orden**: el `toggle_status` va al final para que cuando la automation rule de Chatwoot detecte `status=open` con team asignado, ya tenga toda la metadata (label, nota, team) cargada.
+**Por qué en este orden**: el `toggle_status` va al final para que cuando la automation rule de Chatwoot detecte `status=open` con team asignado, ya tenga toda la metadata (label, nota, team) cargada. El paso 0 (ack) precede a todo para que el cliente vea el mensaje "te paso con un asesor" antes de que la conversación flipée a humano (requirement de CLAUDE.md).
+
+**Coordinación con el webhook handler**: la tool retorna `{ replyHandled: true }` cuando posteó el ack. El webhook handler inspecciona los `toolResults` (incluyendo `subAgentToolResults` por delegación del supervisor) y, si encuentra `replyHandled === true`, **NO postea** el texto final del agente — así evitamos enviar dos mensajes al cliente.
 
 **Reglas de error**:
 - Sin retry automático en v1.
-- Si cualquier paso falla, devolver `{ success: false, step_failed: 1-4, error }`.
+- Si cualquier paso falla, devolver `{ success: false, step_failed: 0|1|2|3|4, error, replyHandled }` (replyHandled = true si el paso 0 ya pasó, así el webhook no duplica el ack).
 - Loguear con nivel ERROR (no info, no warn) en cada fallo.
+- Lock se libera al fallo, así un re-intento (manual o vía re-invocación del agente) puede correr.
 
-**Idempotencia**: lock interno por `conversationId`. Si la misma conversación fue handoffeada en los últimos 60 segundos, skipear (no-op, retornar success).
+**Idempotencia**: lock interno en memoria por `conversationId`. Si la misma conversación fue handoffeada en los últimos 60 segundos, retornar no-op exitoso `{ success: true, step_failed: null, replyHandled: true, idempotentSkip: true }`.
 
 **Template obligatorio de la nota privada** (parámetro `reason`):
 
@@ -178,7 +184,7 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
 - **Mocks de Twenty y Telegram** en v1, integración real en v2.
 - **Sin Slack** en absoluto (era deuda del sistema viejo).
-- **Mensaje de acknowledge inmediato** cuando el backoffice escala (un mensaje breve público al cliente del estilo "Te paso con un asesor, te respondemos a la brevedad" — esto va en la lógica del backoffice, antes del `toggle_status`).
+- **Mensaje de acknowledge inmediato** cuando el backoffice escala. Implementado como paso 0 de `chatwoot-handoff` (la tool recibe `ackMessage` por parámetro y lo postea como mensaje público antes de la secuencia 1-4). El webhook handler skipea el post del texto final del agente cuando detecta `replyHandled: true` para no duplicar.
 - **Calendly link**: vendrá un Cal.com personal de Mariano. Por ahora dejar como variable `CALENDLY_LINK` en config, vacío por defecto. Cuando esté el link real, se conecta. **No hardcodear ningún link** en prompts ni código.
 
 ## Lo que NO va en v1
@@ -281,5 +287,6 @@ Pasos:
 | 2026-05-02 | Documento inicial. v1 en construcción. |
 | 2026-05-02 | Path del webhook cambiado de `/api/v1/webhooks/chatwoot/:token` a `/v1/webhooks/chatwoot/:token`. Razón: `@mastra/core@1.31.0` reserva el prefix `/api/*` para sus rutas internas vía constraint de tipo en `registerApiRoute()` (`node_modules/@mastra/core/dist/server/index.d.ts:16-17`). Como Chatwoot todavía no apunta a este endpoint (fomo-core sigue activo), el cambio no tiene impacto en producción — sólo afecta el `outgoing_url` que se va a configurar en el cutover. |
 | 2026-05-02 | Reemplazo de la tool custom `delegate-to-backoffice` por el patrón nativo de Mastra (supervisor agents): el recepcionista declara `agents: { backoffice }` + `memory: new Memory({ storage: LibSQLStore })`, Mastra decide la delegación basado en `description` + instructions. Razón: Mastra v1.8+ expone supervisor pattern con memory isolation, fresh thread por delegation, hooks (`onDelegationStart/Complete`) — todo lo que íbamos a reimplementar. Decisión global del proyecto: defaultear a primitivos del framework, sólo escribir custom cuando sea necesario. Deps agregados: `@mastra/memory`, `@mastra/libsql`. Tabla de tools actualizada (4 tools, no 5). Schema de env: `CHATWOOT_API_TOKEN` pasa a opcional (default `''`); la validación se mueve a call-site (`requireChatwootToken()` en `src/lib/chatwoot.ts`), así dev/Studio bootea sin token configurado y el token sólo es exigido cuando una tool real lo necesita (post de mensaje saliente, handoff de Día 3). |
+| 2026-05-02 | Día 3: `chatwoot-handoff` real con 5 llamadas (ack como paso 0 + 4 canónicas). Schema agrega `ackMessage` como input requerido — el agente lo formula y la tool lo postea públicamente antes de los pasos 1-4. Output gana `replyHandled: boolean` para que el webhook handler skipee el post del texto final del agente y no duplique el mensaje al usuario. `step_failed` ahora cubre `0|1|2|3|4|null`. Lock idempotencia 60s en memoria por conversationId, se libera al fallar para permitir reintentos. Lib `src/lib/chatwoot.ts` extendida con `addChatwootLabels`, `assignChatwootTeam`, `toggleChatwootStatus`. Webhook handler en `src/server/webhook.ts` agrega `handoffAlreadyPostedAck()` que recursa sobre `toolResults` y `subAgentToolResults` para detectar el flag. Tests con `globalThis.fetch` mockeado: 6 casos cubren happy path, fallo en paso 0/1/4, idempotent skip, y release de lock al fallar. Total suite: 21/21. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.

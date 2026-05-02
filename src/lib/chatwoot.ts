@@ -9,12 +9,50 @@ export class ChatwootNotConfiguredError extends Error {
   }
 }
 
+export class ChatwootApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly statusText: string,
+    public readonly bodyPreview: string,
+  ) {
+    super(`Chatwoot API error: ${status} ${statusText} — ${bodyPreview.slice(0, 300)}`);
+    this.name = 'ChatwootApiError';
+  }
+}
+
 export function requireChatwootToken(): string {
   const env = loadEnv();
   if (!env.CHATWOOT_API_TOKEN) {
     throw new ChatwootNotConfiguredError();
   }
   return env.CHATWOOT_API_TOKEN;
+}
+
+async function chatwootPost(input: {
+  conversationId: number;
+  path: 'labels' | 'messages' | 'assignments' | 'toggle_status';
+  body: unknown;
+}): Promise<unknown> {
+  const env = loadEnv();
+  const token = requireChatwootToken();
+
+  const url = `${env.CHATWOOT_BASE_URL}/api/v1/accounts/${env.CHATWOOT_ACCOUNT_ID}/conversations/${input.conversationId}/${input.path}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      api_access_token: token,
+    },
+    body: JSON.stringify(input.body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new ChatwootApiError(res.status, res.statusText, text);
+  }
+
+  return res.json().catch(() => ({}));
 }
 
 export interface SendMessageInput {
@@ -25,28 +63,46 @@ export interface SendMessageInput {
 }
 
 export async function sendChatwootMessage(input: SendMessageInput): Promise<void> {
-  const env = loadEnv();
-  const token = requireChatwootToken();
-
-  const url = `${env.CHATWOOT_BASE_URL}/api/v1/accounts/${env.CHATWOOT_ACCOUNT_ID}/conversations/${input.conversationId}/messages`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      api_access_token: token,
-    },
-    body: JSON.stringify({
+  await chatwootPost({
+    conversationId: input.conversationId,
+    path: 'messages',
+    body: {
       content: input.content,
       message_type: 'outgoing',
       private: input.private ?? false,
-    }),
+    },
   });
+}
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Chatwoot sendMessage failed: ${res.status} ${res.statusText} — ${text.slice(0, 300)}`,
-    );
-  }
+export async function addChatwootLabels(input: {
+  conversationId: number;
+  labels: string[];
+}): Promise<void> {
+  await chatwootPost({
+    conversationId: input.conversationId,
+    path: 'labels',
+    body: { labels: input.labels },
+  });
+}
+
+export async function assignChatwootTeam(input: {
+  conversationId: number;
+  teamId: number;
+}): Promise<void> {
+  await chatwootPost({
+    conversationId: input.conversationId,
+    path: 'assignments',
+    body: { team_id: input.teamId },
+  });
+}
+
+export async function toggleChatwootStatus(input: {
+  conversationId: number;
+  status: 'open' | 'resolved' | 'pending';
+}): Promise<void> {
+  await chatwootPost({
+    conversationId: input.conversationId,
+    path: 'toggle_status',
+    body: { status: input.status },
+  });
 }
