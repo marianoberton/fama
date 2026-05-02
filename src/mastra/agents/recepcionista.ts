@@ -3,9 +3,10 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { knowledgeSearch } from '../tools/knowledge-search.js';
 import { backoffice } from './backoffice.js';
+import { loadEnv } from '../../config/env.js';
 
 const memory = new Memory({
-  storage: new LibSQLStore({ id: 'fama-storage', url: 'file:./mastra.db' }),
+  storage: new LibSQLStore({ id: 'fama-storage', url: loadEnv().MASTRA_DB_URL }),
 });
 
 export const recepcionista = new Agent({

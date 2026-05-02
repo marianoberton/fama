@@ -16,6 +16,11 @@ const envSchema = z.object({
 
   CALENDLY_LINK: z.string().default(''),
 
+  // LibSQL URL for Mastra Memory storage. Default is a local file at the
+  // project root for dev. In Docker we override to point inside a mounted
+  // volume so memory survives container restarts.
+  MASTRA_DB_URL: z.string().default('file:./mastra.db'),
+
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])

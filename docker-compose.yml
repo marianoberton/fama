@@ -1,0 +1,41 @@
+# FAMA — production-style local run.
+#
+# Use this on the VPS (where fomo-net already exists) and locally for smoke
+# tests. The CHATWOOT_API_TOKEN, OPENAI_API_KEY, and CHATWOOT_PATH_TOKEN must
+# be set in .env before bringing the stack up.
+
+services:
+  fama:
+    build: .
+    container_name: fama
+    restart: unless-stopped
+    init: true
+    networks:
+      - fomo-net
+    ports:
+      - "4111:4111"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Persist memory inside the named volume so it survives restarts.
+      MASTRA_DB_URL: file:/app/data/mastra.db
+    volumes:
+      - fama-state:/app/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "wget -q -O /dev/null http://localhost:4111/health || exit 1"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+networks:
+  # Externally created on the VPS that hosts Chatwoot. Locally you can
+  # `docker network create fomo-net` once before the first `docker compose up`.
+  fomo-net:
+    external: true
+
+volumes:
+  fama-state:

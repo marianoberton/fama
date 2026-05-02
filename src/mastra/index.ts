@@ -13,6 +13,9 @@ export const mastra = new Mastra({
   agents: { recepcionista, backoffice },
   server: {
     apiRoutes: [
+      // Note: Mastra ya expone GET /health built-in que devuelve {success:true}.
+      // Lo usamos directamente para el healthcheck del container — no hace falta
+      // route propia.
       registerApiRoute('/v1/webhooks/chatwoot/:token', {
         method: 'POST',
         requiresAuth: false,
