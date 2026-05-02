@@ -45,8 +45,7 @@ if (-not (Test-Path $fixturesDir)) {
     exit 1
 }
 
-$endpoint = "$BaseUrl/v1/webhooks/chatwoot/$Token"
-Write-Host "POST → $endpoint" -ForegroundColor Cyan
+Write-Host "Base URL: $BaseUrl" -ForegroundColor Cyan
 Write-Host ""
 
 $fixtures = Get-ChildItem -Path $fixturesDir -Filter '*.json' | Sort-Object Name
@@ -55,11 +54,20 @@ foreach ($fixture in $fixtures) {
     $raw = Get-Content -Path $fixture.FullName -Raw
     $payload = $raw | ConvertFrom-Json
 
-    # Strip the _meta envelope so what we send looks like a real Chatwoot body.
+    # If the fixture's _meta declares a pathToken override, use it (e.g. the
+    # invalid-path-token fixture deliberately mismatches). Otherwise use the
+    # real token passed in via -Token so the filter's rule 1 passes.
+    $effectiveToken = $Token
     if ($null -ne $payload.PSObject.Properties['_meta']) {
+        $meta = $payload._meta
+        if ($null -ne $meta.PSObject.Properties['pathToken']) {
+            $effectiveToken = $meta.pathToken
+        }
+        # Strip the _meta envelope so what we send looks like a real Chatwoot body.
         $payload.PSObject.Properties.Remove('_meta')
     }
 
+    $endpoint = "$BaseUrl/v1/webhooks/chatwoot/$effectiveToken"
     $body = $payload | ConvertTo-Json -Depth 20
 
     try {
