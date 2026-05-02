@@ -1,0 +1,30 @@
+{
+  "name": "fama",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "FAMA — agente de atención al cliente de FOMO sobre Mastra",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mastra/core": "latest",
+    "mastra": "latest",
+    "pino": "^9.5.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "pino-pretty": "^11.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

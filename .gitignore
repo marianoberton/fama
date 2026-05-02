@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.mastra/
+coverage/
+
+.env
+.env.local
+.env.*.local
+
+*.log
+npm-debug.log*
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# Claude Code skill mirror (symlink) — source of truth lives in .agents/skills/
+.claude/skills/
+
+.cache/
+.tmp/
