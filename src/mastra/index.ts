@@ -20,6 +20,7 @@ export const mastra = new Mastra({
           const outcome = await handleChatwootWebhook({
             pathToken: c.req.param('token'),
             rawBody: await c.req.text(),
+            mastra: c.get('mastra'),
           });
           return c.json(outcome.body, outcome.status);
         },
