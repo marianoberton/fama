@@ -49,8 +49,7 @@ WhatsApp → Chatwoot → webhook → Recepcionista (FAMA, supervisor)
                                               │
                                               ├─ knowledge-search
                                               ├─ chatwoot-handoff (escalar a humano)
-                                              ├─ upsert-twenty-lead (CRM, mock en v1)
-                                              └─ notify-mariano (Telegram, mock en v1)
+                                              └─ upsert-twenty-lead (CRM, mock en v1)
 ```
 
 - **Recepcionista (FAMA, supervisor)**: conversa, hace discovery, identifica intención. Cuando hay venta clara, delega al backoffice usando el patrón nativo de Mastra — no una tool custom.
@@ -156,7 +155,6 @@ El backoffice es responsable de armar este string con el contexto recolectado.
 | `knowledge-search` | Real | Recepcionista + Backoffice |
 | `chatwoot-handoff` | Real | Solo Backoffice |
 | `upsert-twenty-lead` | Mock (console.log + return success) | Solo Backoffice |
-| `notify-mariano` | Mock (console.log + return success) | Solo Backoffice |
 
 > Nota: la "delegación al backoffice" NO es una tool — usa el patrón nativo `agents: { backoffice }` + `Memory` de Mastra. Ver bitácora 2026-05-02.
 
@@ -182,8 +180,9 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 - **gpt-4o-mini** para ambos agentes en v1.
 - **Sin retry automático** en handoff. Falla → log ERROR → reintentos vienen del flujo natural del agente.
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
-- **Mocks de Twenty y Telegram** en v1, integración real en v2.
-- **Sin Slack** en absoluto (era deuda del sistema viejo).
+- **Mock de Twenty** en v1 (lead registration), integración real en v2.
+- **Sin Slack ni Telegram** en v1. La tool `notify-mariano` quedó eliminada — si en v2 querés notificación a Mariano se reimplementa contra el canal definitivo (no asumimos Telegram).
+- **NURTURING (worker de seguimiento) entra en v1.** Reintentos a ~4h y ~22h sin respuesta del cliente, sólo dentro de la ventana de 24h de Meta y en horario laboral AR (9-19hs UTC-3). Cancela si la conversación está escalada (`open`), si el lead es `WON`/`LOST`, o tras 2 reintentos. Spec completo en `fama-design-v1.md §7`. Implementación queda planeada para post-cutover (no en el plan de Días 1-7 de abajo).
 - **Mensaje de acknowledge inmediato** cuando el backoffice escala. Implementado como paso 0 de `chatwoot-handoff` (la tool recibe `ackMessage` por parámetro y lo postea como mensaje público antes de la secuencia 1-4). El webhook handler skipea el post del texto final del agente cuando detecta `replyHandled: true` para no duplicar.
 - **Calendly link**: vendrá un Cal.com personal de Mariano. Por ahora dejar como variable `CALENDLY_LINK` en config, vacío por defecto. Cuando esté el link real, se conecta. **No hardcodear ningún link** en prompts ni código.
 
@@ -191,15 +190,17 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 
 No construyas estas cosas, son v2 explícitamente:
 
-- Worker NURTURING / Tamagotchi (revivir leads dormidos).
+- Templates de Meta WhatsApp Business para reintentos del NURTURING fuera de la ventana de 24h.
+- Inferencia de timezone del cliente desde su primer mensaje (para horarios de envío apropiados — en v1 todo se asume horario AR).
 - Debouncing / batching de mensajes seguidos.
-- Conexión real a Twenty CRM.
-- Conexión real a Telegram.
+- Conexión real a Twenty CRM (sigue como mock).
+- Notificación a Mariano por canal externo (Telegram / Slack / mail) — la tool `notify-mariano` quedó eliminada en v1.
 - Métricas en `fomo-platform`.
 - Pre-flight validation de tools.
 - ToolPacks como abstracción.
 - Conversaciones protegidas con label `no-bot`.
 - Handoff inverso sofisticado (reaperturas con heurística de tiempo).
+- NURTURING que reintenta cuando el humano asignado se demoró (el worker básico SÍ está en v1; esta es la versión sofisticada).
 - QUALIFIER como tercer agente separado del backoffice.
 - PRICING_AGENT como agente separado.
 - Multi-tenant (este proyecto es solo para FOMO; otros clientes son repos separados).
@@ -333,5 +334,7 @@ Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile e
 | 2026-05-02 | Día 4: knowledge-search real + 6 markdowns en `src/knowledge/` (identity, employees, services, pricing, faqs, sales). Lib `src/lib/knowledge.ts`: parsea cada md por headings `## `, score por substring case+accent-insensitive con stopwords castellanos (que/cual/como/etc) y bonus 5× cuando el match cae en el título de la sección. La tool `knowledge-search` ahora delega a `searchKnowledge(query, limit)`. Path resuelto contra `process.cwd()/src/knowledge` — `mastra dev` y los tests corren desde la raíz; en Docker (Día 5) hay que copiar la carpeta. **Pendiente Mariano**: completar valores TBD en `pricing.md` (precios reales de Starter/Equipo/Completo/Enterprise) y `faqs.md` (respuestas reales a las 9 preguntas). El skeleton refleja la estructura; el agente ya puede operar pero responderá "TBD" o "consultá con el equipo" hasta que se completen. Total suite: 28/28. |
 | 2026-05-02 | Día 5: Docker. `Dockerfile` multi-stage (build → runtime, node:20-alpine), copia `src/knowledge/` al runtime para que `searchKnowledge` resuelva la path cwd-relativa dentro del container. `docker-compose.yml` referencia `fomo-net` como `external: true`, expone 4111, persiste `mastra.db` en named volume `fama-state` montado en `/app/data` con `MASTRA_DB_URL=file:/app/data/mastra.db`. `.dockerignore` excluye node_modules, tests, .agents/.claude (skills), CLAUDE.md y secrets. `MASTRA_DB_URL` agregado al schema de env (default `file:./mastra.db`). Healthcheck del container usa el `/health` **built-in de Mastra** (devuelve `{success:true}` con 200) — confirmado al inspeccionar contra el container, así que no hace falta apiRoute custom. |
 | 2026-05-02 | Día 6-7: cierre de v1. Resto de tareas son operacionales y dependen de Mariano + Guille (ver "Lista de pendientes Mariano"). Código congelado a la espera de validación en Studio + smoke contra Chatwoot real antes del cutover. |
+| 2026-05-02 | Calibración post-Studio dry-run #1: prompt del recepcionista exige nombre + servicio específico + plazo antes de delegar (delegaba con "IA para mi empresa"); supervisor relay verbatim post-delegación (ahorra tokens y limpia la doble respuesta visible en Studio). Backoffice exige los 5 campos obligatorios (nombre, empresa, servicio específico, canal de contacto, plazo) antes de cualquier tool, y NO reintenta `chatwoot-handoff` cuando devuelve `success: false` (en su lugar mete fallback fijo apuntando a hola@fomologic.com). |
+| 2026-05-02 | Sincronización con `fama-design-v1.md` (cambios de alcance v1): (1) **`notify-mariano` ELIMINADA del v1**. Tool removida (`src/mastra/tools/notify-mariano.ts`), import + tool entry removidos del backoffice, instructions sin referencias a "casos calientes" ni Telegram. Si en v2 hace falta notificar a Mariano por canal externo, se reimplementa contra el canal definitivo (no asumimos Telegram). (2) **NURTURING entra en v1 scope** (estaba en "no en v1") — worker para revivir leads dormidos con 2 reintentos dentro de la ventana 24h Meta + horario AR; spec en `fama-design-v1.md §7`; implementación post-cutover. (3) Nuevos items en "Lo que NO va en v1": templates de Meta para reintentos >24h, inferencia de timezone del cliente, NURTURING sofisticado para humanos demorados, notificación a Mariano por canal externo. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.
