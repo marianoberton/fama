@@ -9,7 +9,10 @@ const envSchema = z.object({
   CHATWOOT_AGENT_BOT_ID: z.coerce.number().int().positive(),
   CHATWOOT_TEAM_ID: z.coerce.number().int().positive(),
   CHATWOOT_PATH_TOKEN: z.string().min(1, 'CHATWOOT_PATH_TOKEN is required'),
-  CHATWOOT_API_TOKEN: z.string().min(1, 'CHATWOOT_API_TOKEN is required'),
+  // Optional at boot so dev/Studio works without it. Validated at call-site
+  // (src/lib/chatwoot.ts → requireChatwootToken) when an outbound API call
+  // actually needs it (Day 3 handoff, Day 2 reply post).
+  CHATWOOT_API_TOKEN: z.string().default(''),
 
   CALENDLY_LINK: z.string().default(''),
 

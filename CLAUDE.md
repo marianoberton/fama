@@ -37,14 +37,15 @@ Más un Manager que coordina al equipo (incluido a partir del plan Equipo).
 
 ## Arquitectura del proyecto
 
-**Multi-agente: Recepcionista + Backoffice.**
+**Multi-agente: Recepcionista (supervisor) + Backoffice (subagente).**
 
 ```
-WhatsApp → Chatwoot → webhook → Recepcionista (FAMA)
+WhatsApp → Chatwoot → webhook → Recepcionista (FAMA, supervisor)
                                        │
                                        ├─ knowledge-search (info de FOMO)
                                        │
-                                       └─ delegate-to-backoffice (cuando hay intención de venta)
+                                       └─ delega al subagente Backoffice
+                                              (vía patrón nativo de Mastra: `agents: { backoffice }` + Memory)
                                               │
                                               ├─ knowledge-search
                                               ├─ chatwoot-handoff (escalar a humano)
@@ -52,8 +53,8 @@ WhatsApp → Chatwoot → webhook → Recepcionista (FAMA)
                                               └─ notify-mariano (Telegram, mock en v1)
 ```
 
-- **Recepcionista (FAMA)**: conversa, hace discovery, identifica intención. Cuando hay venta clara, delega.
-- **Backoffice**: especialista de ventas. Decide si escalar al humano, guardar lead, notificar.
+- **Recepcionista (FAMA, supervisor)**: conversa, hace discovery, identifica intención. Cuando hay venta clara, delega al backoffice usando el patrón nativo de Mastra — no una tool custom.
+- **Backoffice (subagente)**: especialista de ventas. Decide si escalar al humano, guardar lead, notificar.
 
 ## Stack y restricciones
 
@@ -147,10 +148,11 @@ El backoffice es responsable de armar este string con el contexto recolectado.
 | Tool | Estado v1 | Quién la usa |
 |---|---|---|
 | `knowledge-search` | Real | Recepcionista + Backoffice |
-| `delegate-to-backoffice` | Real | Solo Recepcionista |
 | `chatwoot-handoff` | Real | Solo Backoffice |
 | `upsert-twenty-lead` | Mock (console.log + return success) | Solo Backoffice |
 | `notify-mariano` | Mock (console.log + return success) | Solo Backoffice |
+
+> Nota: la "delegación al backoffice" NO es una tool — usa el patrón nativo `agents: { backoffice }` + `Memory` de Mastra. Ver bitácora 2026-05-02.
 
 **No agregues tools sin discutirlo primero.** Si pensás que falta una, decímelo, lo evaluamos juntos. Patrón aprendido del sistema viejo: las tools acumuladas sin curaduría generaron deuda técnica grande.
 
@@ -170,7 +172,7 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 
 ## Decisiones que ya están tomadas (no las re-cuestiones)
 
-- **Multi-agente** (Recepcionista + Backoffice), no mono-agente.
+- **Multi-agente** (Recepcionista supervisor + Backoffice subagente) vía el patrón nativo de Mastra (`agents: { backoffice }` + `Memory`), no tool custom de delegación. Decisión de proyecto: defaultear a primitivos del framework, sólo escribir custom cuando sea necesario.
 - **gpt-4o-mini** para ambos agentes en v1.
 - **Sin retry automático** en handoff. Falla → log ERROR → reintentos vienen del flujo natural del agente.
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
@@ -278,5 +280,6 @@ Pasos:
 |---|---|
 | 2026-05-02 | Documento inicial. v1 en construcción. |
 | 2026-05-02 | Path del webhook cambiado de `/api/v1/webhooks/chatwoot/:token` a `/v1/webhooks/chatwoot/:token`. Razón: `@mastra/core@1.31.0` reserva el prefix `/api/*` para sus rutas internas vía constraint de tipo en `registerApiRoute()` (`node_modules/@mastra/core/dist/server/index.d.ts:16-17`). Como Chatwoot todavía no apunta a este endpoint (fomo-core sigue activo), el cambio no tiene impacto en producción — sólo afecta el `outgoing_url` que se va a configurar en el cutover. |
+| 2026-05-02 | Reemplazo de la tool custom `delegate-to-backoffice` por el patrón nativo de Mastra (supervisor agents): el recepcionista declara `agents: { backoffice }` + `memory: new Memory({ storage: LibSQLStore })`, Mastra decide la delegación basado en `description` + instructions. Razón: Mastra v1.8+ expone supervisor pattern con memory isolation, fresh thread por delegation, hooks (`onDelegationStart/Complete`) — todo lo que íbamos a reimplementar. Decisión global del proyecto: defaultear a primitivos del framework, sólo escribir custom cuando sea necesario. Deps agregados: `@mastra/memory`, `@mastra/libsql`. Tabla de tools actualizada (4 tools, no 5). Schema de env: `CHATWOOT_API_TOKEN` pasa a opcional (default `''`); la validación se mueve a call-site (`requireChatwootToken()` en `src/lib/chatwoot.ts`), así dev/Studio bootea sin token configurado y el token sólo es exigido cuando una tool real lo necesita (post de mensaje saliente, handoff de Día 3). |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.

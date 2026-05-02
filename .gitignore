@@ -3,6 +3,12 @@ dist/
 .mastra/
 coverage/
 
+# Mastra Memory storage (LibSQL) — local dev DB; recreated on demand
+mastra.db
+mastra.db-journal
+mastra.db-shm
+mastra.db-wal
+
 .env
 .env.local
 .env.*.local
