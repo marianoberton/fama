@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { searchKnowledge } from '../../lib/knowledge.js';
 
 export const knowledgeSearch = createTool({
   id: 'knowledge-search',
@@ -25,11 +26,8 @@ export const knowledgeSearch = createTool({
       }),
     ),
   }),
-  // TODO Day 4: implementar búsqueda real sobre src/knowledge/*.md
-  // (identity, employees, pricing, services, faqs, sales). Probable approach:
-  // cargar y chunkear los markdowns al boot, indexar con un retriever simple
-  // (BM25 o embeddings + cosine), devolver top-K por score.
-  execute: async () => {
-    return { results: [] };
+  execute: async ({ query, limit }) => {
+    const results = searchKnowledge(query, limit);
+    return { results };
   },
 });
