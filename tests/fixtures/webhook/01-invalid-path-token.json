@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "description": "Rule 1: path token in URL doesn't match expected. Body is otherwise a valid happy-path payload — the rejection comes from the URL path, not the body.",
+    "expected": { "pass": false, "status": 401, "reason": "invalid_path_token" },
+    "pathToken": "wrong-token-not-the-real-one"
+  },
+  "event": "message_created",
+  "id": 1001,
+  "content": "Hola, quería info sobre los empleados de IA",
+  "message_type": 0,
+  "created_at": "2026-05-02T13:00:00.000Z",
+  "private": false,
+  "source_id": "wamid.HBgNNTQ5MTE3MjM0MzUwNhUCABIYIDIzNEFCQzEyMzQ1Njc4OTABBA==",
+  "account": { "id": 1, "name": "FOMO" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "conversation": {
+    "id": 4242,
+    "status": "pending",
+    "channel": "Channel::Api",
+    "contact_inbox": { "source_id": "5491172343506" }
+  },
+  "sender": {
+    "id": 88,
+    "type": "contact",
+    "name": "Juan Pérez",
+    "phone_number": "+5491172343506"
+  },
+  "messages": [
+    {
+      "id": 1001,
+      "content": "Hola, quería info sobre los empleados de IA",
+      "message_type": 0,
+      "private": false,
+      "created_at": "2026-05-02T13:00:00.000Z",
+      "sender": {
+        "id": 88,
+        "type": "contact",
+        "name": "Juan Pérez",
+        "phone_number": "+5491172343506"
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "Rule 6: incoming message from contact, but content is whitespace-only. Could be a sticker / media-only message Chatwoot delivered without text. Ignore with 200.",
+    "expected": { "pass": false, "status": 200, "reason": "empty_content" }
+  },
+  "event": "message_created",
+  "id": 1006,
+  "content": "   \n\t  ",
+  "message_type": 0,
+  "created_at": "2026-05-02T13:04:00.000Z",
+  "private": false,
+  "account": { "id": 1, "name": "FOMO" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "conversation": {
+    "id": 4247,
+    "status": "pending",
+    "channel": "Channel::Api"
+  },
+  "sender": {
+    "id": 90,
+    "type": "contact",
+    "name": "Lucía R.",
+    "phone_number": "+5491133334444"
+  },
+  "messages": [
+    {
+      "id": 1006,
+      "content": "   \n\t  ",
+      "message_type": 0,
+      "private": false,
+      "sender": {
+        "id": 90,
+        "type": "contact",
+        "name": "Lucía R.",
+        "phone_number": "+5491133334444"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "Rule 3: event is conversation_updated, not message_created. Should be silently dropped with 200.",
+    "expected": { "pass": false, "status": 200, "reason": "event_not_message_created" }
+  },
+  "event": "conversation_updated",
+  "id": 4244,
+  "account": { "id": 1, "name": "FOMO" },
+  "inbox": { "id": 3, "name": "WhatsApp FOMO" },
+  "changed_attributes": [
+    {
+      "status": { "current_value": "open", "previous_value": "pending" }
+    }
+  ],
+  "conversation": {
+    "id": 4244,
+    "status": "open",
+    "channel": "Channel::Api"
+  }
+}
