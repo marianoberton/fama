@@ -3,7 +3,12 @@ import { filterWebhook } from './filter.js';
 import { loadEnv } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { sendChatwootMessage, ChatwootNotConfiguredError } from '../lib/chatwoot.js';
-import { recordInbound, recordOutbound } from '../lib/nurturing-store.js';
+import {
+  recordInbound,
+  recordOutbound,
+  getConversation,
+} from '../lib/nurturing-store.js';
+import { shouldSendHardcodedWelcome, WELCOME_TEXT } from '../lib/welcome.js';
 
 export interface HandlerOutcome {
   status: 200 | 202 | 401 | 500;
@@ -51,6 +56,17 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
 
   // Track for NURTURING. Resets retry counter — a fresh inbound means the
   // client is alive, so any pending follow-up cycle restarts from zero.
+  // We capture the row BEFORE recordInbound so we know if this is the first
+  // turn (no previous outbound).
+  const priorRow = await getConversation(message.conversationId).catch((err) => {
+    logger.error(
+      { err: (err as Error).message, conversationId: message.conversationId },
+      'nurturing: getConversation failed — assuming not first turn (safer)',
+    );
+    return null;
+  });
+  const isFirstTurn = priorRow === null || priorRow.lastOutboundAt === null;
+
   await recordInbound({
     conversationId: message.conversationId,
     contactId: message.contactId,
@@ -60,6 +76,43 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
       'nurturing: recordInbound failed — continuing webhook processing',
     );
   });
+
+  // Hard-coded welcome path: short first message → fixed greeting, no LLM.
+  if (shouldSendHardcodedWelcome({ text: message.content, isFirstTurn })) {
+    logger.info(
+      {
+        conversationId: message.conversationId,
+        words: message.content.trim().split(/\s+/).length,
+      },
+      'webhook: short first turn → posting hard-coded welcome (no LLM)',
+    );
+    try {
+      await sendChatwootMessage({
+        conversationId: message.conversationId,
+        content: WELCOME_TEXT,
+      });
+      await recordOutbound({ conversationId: message.conversationId }).catch((err) => {
+        logger.error(
+          { err: (err as Error).message, conversationId: message.conversationId },
+          'nurturing: recordOutbound (welcome) failed',
+        );
+      });
+    } catch (err) {
+      if (err instanceof ChatwootNotConfiguredError) {
+        logger.warn(
+          { conversationId: message.conversationId },
+          'CHATWOOT_API_TOKEN not configured — welcome NOT sent (dev/Studio mode)',
+        );
+      } else {
+        logger.error(
+          { err: (err as Error).message, conversationId: message.conversationId },
+          'webhook: hard-coded welcome post failed',
+        );
+        return { status: 500, body: { error: 'agent_or_post_failed' } };
+      }
+    }
+    return { status: 202, body: { received: true, welcome: true } };
+  }
 
   // Native Mastra supervisor delegation: recepcionista decides when to call
   // the backoffice subagent based on its description + instructions.
