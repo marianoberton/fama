@@ -8,7 +8,7 @@ export const backoffice = new Agent({
   name: 'FAMA Backoffice',
   description:
     'Especialista de ventas y derivación de FOMO. Recibe conversaciones cuando hay intención clara de venta sobre los 3 frentes (Empleados de IA, Consultoría, Capacitaciones), reclamos, urgencias o pedidos explícitos de hablar con un humano. Aplica el árbol de decisión de 4 arquetipos + 5 excepciones, registra el lead en CRM (mock v1) y, cuando corresponde, escala a un humano del equipo vía chatwoot-handoff con la categoría correcta. NO atiende consultas generales — esas las resuelve la recepcionista.',
-  model: 'openai/gpt-4o-mini',
+  model: 'openai/gpt-4o',
   instructions: `Sos el Backoffice de FAMA, especialista de ventas para FOMO (consultora argentina de IA en LATAM).
 
 # Identidad de FOMO (no inventes ni amplíes)

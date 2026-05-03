@@ -71,7 +71,7 @@ NURTURING worker (proceso aparte, setInterval 15min)
 
 - **Framework**: Mastra (usar el skill instalado para todas las APIs).
 - **Lenguaje**: TypeScript con ES2022 (requirement de Mastra).
-- **Modelo**: `openai/gpt-4o-mini` para ambos agentes en v1. Configurar via Mastra model router (`provider/model-name`).
+- **Modelo**: `openai/gpt-4o-mini` para el recepcionista, `openai/gpt-4o` para el backoffice en v1. Configurar via Mastra model router (`provider/model-name`).
 - **Provider único en v1**: solo OpenAI. No usar Anthropic, Google, etc.
 - **Server**: Express o lo que el skill de Mastra recomiende para webhook handlers.
 - **Deploy target**: VPS propio con Docker (red `fomo-net` ya existe en el VPS donde corre Chatwoot).
@@ -189,7 +189,7 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 ## Decisiones que ya están tomadas (no las re-cuestiones)
 
 - **Multi-agente** (Recepcionista supervisor + Backoffice subagente) vía el patrón nativo de Mastra (`agents: { backoffice }` + `Memory`), no tool custom de delegación. Decisión de proyecto: defaultear a primitivos del framework, sólo escribir custom cuando sea necesario.
-- **gpt-4o-mini** para ambos agentes en v1.
+- **gpt-4o-mini** para el recepcionista y **gpt-4o** para el backoffice en v1.
 - **Sin retry automático** en handoff. Falla → log ERROR → reintentos vienen del flujo natural del agente.
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
 - **Mock de Twenty** en v1 (lead registration), integración real en v2.
@@ -351,5 +351,6 @@ Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile e
 | 2026-05-02 | Calibración post-Studio dry-run #1: prompt del recepcionista exige nombre + servicio específico + plazo antes de delegar (delegaba con "IA para mi empresa"); supervisor relay verbatim post-delegación (ahorra tokens y limpia la doble respuesta visible en Studio). Backoffice exige los 5 campos obligatorios (nombre, empresa, servicio específico, canal de contacto, plazo) antes de cualquier tool, y NO reintenta `chatwoot-handoff` cuando devuelve `success: false` (en su lugar mete fallback fijo apuntando a hola@fomologic.com). |
 | 2026-05-02 | Sincronización con `fama-design-v1.md` (cambios de alcance v1): (1) **`notify-mariano` ELIMINADA del v1**. Tool removida (`src/mastra/tools/notify-mariano.ts`), import + tool entry removidos del backoffice, instructions sin referencias a "casos calientes" ni Telegram. Si en v2 hace falta notificar a Mariano por canal externo, se reimplementa contra el canal definitivo (no asumimos Telegram). (2) **NURTURING entra en v1 scope** (estaba en "no en v1") — worker para revivir leads dormidos con 2 reintentos dentro de la ventana 24h Meta + horario AR; spec en `fama-design-v1.md §7`; implementación post-cutover. (3) Nuevos items en "Lo que NO va en v1": templates de Meta para reintentos >24h, inferencia de timezone del cliente, NURTURING sofisticado para humanos demorados, notificación a Mariano por canal externo. |
 | 2026-05-02 | Bloque 0 del diseño v1 sincronizado: diagrama de arquitectura ahora incluye worker NURTURING y branch del primer turno hard-coded (<30 palabras). Decisiones tomadas agrega: primer turno hard-coded (umbral 30 palabras + signal "primer turno = sin `last_outbound_at` registrado"), bar mínimo del Backoffice = 4 datos (no 5), excepciones rígidas bajan el bar a "nombre + canal de contacto". Tabla de tools refleja nuevo contrato de `upsert-twenty-lead` con `stage` enum. NURTURING deja de estar marcado "post-cutover" — entra en este sprint. `fama-design-v1.md §9` actualizado para reflejar la signature real de `chatwoot-handoff` con `ackMessage` (el diseño tenía un input desactualizado). Cambios de código vienen en bloques 1-4 separados. |
+| 2026-05-03 | Backoffice subido a `gpt-4o` (recepcionista se mantiene en `gpt-4o-mini`). Razón: decision tree denso del backoffice (4 arquetipos × 5 excepciones × 6 stages + armado de nota privada estructurada) requiere mejor seguimiento de instrucciones que mini. Costo extra estimado USD 5-15/mes con volumen inicial. Decisión tomada como D1 del plan de cutover (ver PLAN-FAMA-V1-CUTOVER.md). Suite de tests: 88/88 verdes, typecheck limpio. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.
