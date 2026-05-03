@@ -63,6 +63,10 @@ const {
   recordOutbound,
   recordInbound,
 } = await import('../../src/lib/nurturing-store.js');
+const {
+  setDedupStoreClientForTests,
+  _truncateForTests: _truncateDedupForTests,
+} = await import('../../src/lib/dedup-store.js');
 const { WELCOME_TEXT } = await import('../../src/lib/welcome.js');
 const mockSend = vi.mocked(sendChatwootMessage);
 const mockGetContactConversations = vi.mocked(getContactConversations);
@@ -85,6 +89,9 @@ describe('orchestration: webhook → recepcionista', () => {
     const client = createClient({ url: ':memory:' });
     await setNurturingStoreClientForTests(client);
     await _truncateForTests();
+    const dedupClient = createClient({ url: ':memory:' });
+    await setDedupStoreClientForTests(dedupClient);
+    await _truncateDedupForTests();
   });
 
   it('on filter pass with a long enough first message, invokes recepcionista and posts the reply', async () => {
@@ -240,6 +247,35 @@ describe('orchestration: webhook → recepcionista', () => {
     expect(generate).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
   });
+
+  it('duplicate Chatwoot retry (same message id) → 200 silent, agent NOT invoked, no outbound', async () => {
+    // First delivery: full happy path. Second delivery: identical body — must
+    // be deduped before any side effect.
+    const { mastra, generate } = buildMockMastra(async () => ({
+      text: 'Hola Juan, gracias por escribirnos. Te paso info.',
+      steps: [],
+    }));
+    mockSend.mockResolvedValue(undefined);
+
+    const first = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody(LONG_MESSAGE),
+      mastra,
+    });
+    expect(first.status).toBe(202);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+
+    const second = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody(LONG_MESSAGE),
+      mastra,
+    });
+    expect(second).toEqual({ status: 200, body: { ignored: 'duplicate_message' } });
+    // Agent and outbound counts must not have grown.
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('orchestration: known-customer detection', () => {
@@ -250,6 +286,9 @@ describe('orchestration: known-customer detection', () => {
     const client = createClient({ url: ':memory:' });
     await setNurturingStoreClientForTests(client);
     await _truncateForTests();
+    const dedupClient = createClient({ url: ':memory:' });
+    await setDedupStoreClientForTests(dedupClient);
+    await _truncateDedupForTests();
   });
 
   // Test 1 — no prior conversations → normal flow with neutral welcome.

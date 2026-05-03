@@ -12,6 +12,7 @@ import {
   recordOutbound,
   getConversation,
 } from '../lib/nurturing-store.js';
+import { tryMarkProcessed } from '../lib/dedup-store.js';
 import { shouldSendHardcodedWelcome, WELCOME_TEXT } from '../lib/welcome.js';
 import {
   detectKnownCustomer,
@@ -60,6 +61,30 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
   if (!message) {
     logger.error('filter passed but message extraction failed');
     return { status: 500, body: { error: 'message_extraction_failed' } };
+  }
+
+  // Dedupe: Chatwoot may retransmit the same message_created event on retry.
+  // We claim the message_id atomically before any side-effect (NURTURING
+  // recordInbound, welcome post, agent invocation) so a duplicate is a no-op.
+  // Fail-open: a dedup-store error logs and proceeds — better one duplicate
+  // reply than a stuck inbox.
+  try {
+    const isNew = await tryMarkProcessed(message.messageId);
+    if (!isNew) {
+      logger.info(
+        {
+          messageId: message.messageId,
+          conversationId: message.conversationId,
+        },
+        'webhook: duplicate message skipped',
+      );
+      return { status: 200, body: { ignored: 'duplicate_message' } };
+    }
+  } catch (err) {
+    logger.error(
+      { err: (err as Error).message, messageId: message.messageId },
+      'dedup: tryMarkProcessed failed — proceeding without dedupe',
+    );
   }
 
   // Track for NURTURING. Resets retry counter — a fresh inbound means the
@@ -248,6 +273,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
 }
 
 interface ExtractedMessage {
+  messageId: number;
   conversationId: number;
   contactId: number;
   content: string;
@@ -265,13 +291,21 @@ function extractMessage(body: unknown): ExtractedMessage | null {
   const msg = messages[0];
   if (!isObject(msg)) return null;
 
+  const messageId = typeof msg['id'] === 'number' ? msg['id'] : null;
   const content = typeof msg['content'] === 'string' ? msg['content'] : null;
 
   const sender = isObject(msg['sender']) ? msg['sender'] : null;
   const contactId = sender && typeof sender['id'] === 'number' ? sender['id'] : null;
 
-  if (conversationId === null || contactId === null || content === null) return null;
-  return { conversationId, contactId, content };
+  if (
+    messageId === null ||
+    conversationId === null ||
+    contactId === null ||
+    content === null
+  ) {
+    return null;
+  }
+  return { messageId, conversationId, contactId, content };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

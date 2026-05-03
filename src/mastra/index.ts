@@ -5,20 +5,39 @@ import { backoffice } from './agents/backoffice.js';
 import { handleChatwootWebhook } from '../server/webhook.js';
 import { loadEnv } from '../config/env.js';
 import { startNurturingWorker } from '../lib/nurturing-worker.js';
+import { initDedupTable, cleanupOldEntries } from '../lib/dedup-store.js';
 import { logger } from '../lib/logger.js';
 
 // Validate env at startup so a misconfigured deploy fails fast and loud,
 // not on the first incoming webhook.
 const env = loadEnv();
 
-// NURTURING worker — fires every 15 min in dev/prod. Tests start it manually
-// with a faked clock + interval to avoid background ticks polluting assertions.
+const DEDUP_TTL_MS = 5 * 60 * 1000; // 5 min — enough to absorb Chatwoot retries.
+const DEDUP_CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 min between sweeps.
+
+// Background workers — same gating pattern as NURTURING. Tests stay quiet so
+// background ticks don't pollute assertions.
 if (env.NODE_ENV !== 'test') {
   try {
     startNurturingWorker();
   } catch (err) {
     logger.error({ err: (err as Error).message }, 'failed to start NURTURING worker');
   }
+
+  // Dedup cleanup: ensures `processed_messages` doesn't grow unbounded.
+  initDedupTable().catch((err) => {
+    logger.error({ err: (err as Error).message }, 'dedup: initDedupTable failed at startup');
+  });
+  const dedupHandle = setInterval(() => {
+    cleanupOldEntries(DEDUP_TTL_MS).catch((err) => {
+      logger.error({ err: (err as Error).message }, 'dedup: cleanup tick failed');
+    });
+  }, DEDUP_CLEANUP_INTERVAL_MS);
+  if (typeof dedupHandle.unref === 'function') dedupHandle.unref();
+  logger.info(
+    { ttlMs: DEDUP_TTL_MS, intervalMs: DEDUP_CLEANUP_INTERVAL_MS },
+    'dedup cleanup worker started',
+  );
 }
 
 export const mastra = new Mastra({
