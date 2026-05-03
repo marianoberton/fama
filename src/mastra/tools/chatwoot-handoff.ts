@@ -13,6 +13,7 @@ import {
   ChatwootApiError,
   ChatwootNotConfiguredError,
 } from '../../lib/chatwoot.js';
+import { markEscalated } from '../../lib/nurturing-store.js';
 import { logger } from '../../lib/logger.js';
 
 /**
@@ -128,6 +129,14 @@ export async function runHandoff(input: HandoffInput): Promise<HandoffOutput> {
     // Step 4 — flip status to open so a human picks it up.
     step = 4;
     await toggleChatwootStatus({ conversationId, status: 'open' });
+
+    // Stop the NURTURING loop — a human is taking over.
+    await markEscalated(conversationId).catch((err) => {
+      logger.error(
+        { conversationId, err: (err as Error).message },
+        'nurturing: markEscalated failed (handoff already completed OK)',
+      );
+    });
 
     logger.info(
       { conversationId, category },

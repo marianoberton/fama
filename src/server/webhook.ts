@@ -3,6 +3,7 @@ import { filterWebhook } from './filter.js';
 import { loadEnv } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { sendChatwootMessage, ChatwootNotConfiguredError } from '../lib/chatwoot.js';
+import { recordInbound, recordOutbound } from '../lib/nurturing-store.js';
 
 export interface HandlerOutcome {
   status: 200 | 202 | 401 | 500;
@@ -48,6 +49,18 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     return { status: 500, body: { error: 'message_extraction_failed' } };
   }
 
+  // Track for NURTURING. Resets retry counter — a fresh inbound means the
+  // client is alive, so any pending follow-up cycle restarts from zero.
+  await recordInbound({
+    conversationId: message.conversationId,
+    contactId: message.contactId,
+  }).catch((err) => {
+    logger.error(
+      { err: (err as Error).message, conversationId: message.conversationId },
+      'nurturing: recordInbound failed — continuing webhook processing',
+    );
+  });
+
   // Native Mastra supervisor delegation: recepcionista decides when to call
   // the backoffice subagent based on its description + instructions.
   try {
@@ -75,6 +88,13 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
 
     if (skipFinalPost) {
       // chatwoot-handoff already posted the public ack; skip the duplicate post.
+      // The ack itself counts as outbound for NURTURING purposes.
+      await recordOutbound({ conversationId: message.conversationId }).catch((err) => {
+        logger.error(
+          { err: (err as Error).message, conversationId: message.conversationId },
+          'nurturing: recordOutbound (handoff ack) failed',
+        );
+      });
       return { status: 202, body: { received: true } };
     }
 
@@ -82,6 +102,12 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
       await sendChatwootMessage({
         conversationId: message.conversationId,
         content: reply.text,
+      });
+      await recordOutbound({ conversationId: message.conversationId }).catch((err) => {
+        logger.error(
+          { err: (err as Error).message, conversationId: message.conversationId },
+          'nurturing: recordOutbound failed (post succeeded)',
+        );
       });
     } catch (err) {
       if (err instanceof ChatwootNotConfiguredError) {

@@ -55,6 +55,47 @@ async function chatwootPost(input: {
   return res.json().catch(() => ({}));
 }
 
+async function chatwootGet(input: {
+  conversationId: number;
+}): Promise<Record<string, unknown>> {
+  const env = loadEnv();
+  const token = requireChatwootToken();
+
+  const url = `${env.CHATWOOT_BASE_URL}/api/v1/accounts/${env.CHATWOOT_ACCOUNT_ID}/conversations/${input.conversationId}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { api_access_token: token },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new ChatwootApiError(res.status, res.statusText, text);
+  }
+
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return json;
+}
+
+export type ChatwootConversationStatus = 'pending' | 'open' | 'resolved' | 'snoozed';
+
+/**
+ * Returns the conversation's current status. Used by the NURTURING worker to
+ * skip conversations a human has picked up (status === 'open') even if our
+ * local store hasn't been updated yet.
+ */
+export async function getChatwootConversationStatus(
+  conversationId: number,
+): Promise<ChatwootConversationStatus> {
+  const json = await chatwootGet({ conversationId });
+  const status = json['status'];
+  if (status === 'pending' || status === 'open' || status === 'resolved' || status === 'snoozed') {
+    return status;
+  }
+  // Unknown statuses default to 'open' (safer — worker will skip).
+  return 'open';
+}
+
 export interface SendMessageInput {
   conversationId: number;
   content: string;

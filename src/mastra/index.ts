@@ -4,10 +4,22 @@ import { recepcionista } from './agents/recepcionista.js';
 import { backoffice } from './agents/backoffice.js';
 import { handleChatwootWebhook } from '../server/webhook.js';
 import { loadEnv } from '../config/env.js';
+import { startNurturingWorker } from '../lib/nurturing-worker.js';
+import { logger } from '../lib/logger.js';
 
 // Validate env at startup so a misconfigured deploy fails fast and loud,
 // not on the first incoming webhook.
-loadEnv();
+const env = loadEnv();
+
+// NURTURING worker — fires every 15 min in dev/prod. Tests start it manually
+// with a faked clock + interval to avoid background ticks polluting assertions.
+if (env.NODE_ENV !== 'test') {
+  try {
+    startNurturingWorker();
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, 'failed to start NURTURING worker');
+  }
+}
 
 export const mastra = new Mastra({
   agents: { recepcionista, backoffice },
