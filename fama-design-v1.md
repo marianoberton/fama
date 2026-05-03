@@ -459,19 +459,27 @@ Disponible para: FAMA.
 
 ### chatwoot-handoff
 
-Ejecuta los 4 endpoints de Chatwoot en orden con manejo de errores.
+Ejecuta 5 llamadas a la API de Chatwoot en orden (paso 0 = ack público al
+cliente, después los 4 canónicos: label, nota privada, asignación a team,
+toggle status). Lock interno de 60s por `conversationId` para idempotencia.
 
 ```typescript
 input: {
   conversationId: number,
   category: 'escalar-humano' | 'venta-capacitacion' | 'venta-agentes'
           | 'venta-consultoria' | 'reclamo' | 'urgencia',
-  reason: string  // formato del template
+  ackMessage: string,  // mensaje público al cliente, paso 0
+  reason: string       // nota privada, formato del template (sección 5)
 }
 output:
-  | { success: true, conversationId: number, category: string }
-  | { success: false, step_failed: 1|2|3|4, error: string }
+  | { success: true,  step_failed: null,    replyHandled: true, idempotentSkip?: true }
+  | { success: false, step_failed: 0|1|2|3|4, error: string, replyHandled: boolean }
 ```
+
+`replyHandled: true` indica al webhook handler que ya posteamos un mensaje
+público al cliente (el ack), así no se duplica con el texto final del agente.
+En fallos parciales, `replyHandled` refleja si el paso 0 alcanzó a postearse
+antes del error.
 
 Disponible para: Backoffice.
 
@@ -537,5 +545,6 @@ en inferencia más que en data histórica.
 | Fecha | Cambio |
 |---|---|
 | 2026-05-02 | Documento inicial, diseño completo de v1. |
+| 2026-05-02 | §9: signature de `chatwoot-handoff` actualizada para reflejar el código real (input incluye `ackMessage`; output usa `replyHandled: boolean` y cubre `step_failed: 0|1|2|3|4|null`). El diseño original tenía la signature pre-bitácora del 2026-05-02 (Día 3) que añadió el ack como paso 0 — el código gana, el diseño se sincroniza. |
 
 A medida que se implementen ajustes durante construcción, anotar acá.

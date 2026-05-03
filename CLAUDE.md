@@ -40,20 +40,32 @@ Más un Manager que coordina al equipo (incluido a partir del plan Equipo).
 **Multi-agente: Recepcionista (supervisor) + Backoffice (subagente).**
 
 ```
-WhatsApp → Chatwoot → webhook → Recepcionista (FAMA, supervisor)
+WhatsApp → Chatwoot → webhook → [filtro 6 reglas]
                                        │
-                                       ├─ knowledge-search (info de FOMO)
+                                       ├─ primer turno + <30 palabras → texto fijo de bienvenida (sin LLM)
                                        │
-                                       └─ delega al subagente Backoffice
-                                              (vía patrón nativo de Mastra: `agents: { backoffice }` + Memory)
+                                       └─ Recepcionista (FAMA, supervisor)
                                               │
-                                              ├─ knowledge-search
-                                              ├─ chatwoot-handoff (escalar a humano)
-                                              └─ upsert-twenty-lead (CRM, mock en v1)
+                                              ├─ knowledge-search (info de FOMO)
+                                              │
+                                              └─ delega al subagente Backoffice
+                                                     (vía patrón nativo de Mastra: `agents: { backoffice }` + Memory)
+                                                     │
+                                                     ├─ knowledge-search
+                                                     ├─ chatwoot-handoff (escalar a humano)
+                                                     └─ upsert-twenty-lead (CRM, mock en v1)
+
+NURTURING worker (proceso aparte, setInterval 15min)
+   ├─ lee `nurturing_conversations` (LibSQL, misma DB que Memory)
+   ├─ retry 1 a las ~4hs sin respuesta del cliente
+   ├─ retry 2 a las ~22hs (antes de cerrar ventana 24h Meta)
+   ├─ filtra por horario AR (9-19 UTC-3) y status Chatwoot (skip si `open`)
+   └─ marca lead LOST tras 2 reintentos sin respuesta
 ```
 
 - **Recepcionista (FAMA, supervisor)**: conversa, hace discovery, identifica intención. Cuando hay venta clara, delega al backoffice usando el patrón nativo de Mastra — no una tool custom.
-- **Backoffice (subagente)**: especialista de ventas. Decide si escalar al humano, guardar lead, notificar.
+- **Backoffice (subagente)**: especialista de ventas. Aplica árbol de decisión (4 arquetipos + 5 excepciones), guarda lead en CRM, decide si escalar al humano. Spec completo en `fama-design-v1.md §5`.
+- **NURTURING worker**: arranca con el server (excepto en `NODE_ENV=test`), corre cada 15 min, mantiene tabla propia de conversaciones para decidir reintentos. Spec completo en `fama-design-v1.md §7`.
 
 ## Stack y restricciones
 
@@ -154,7 +166,7 @@ El backoffice es responsable de armar este string con el contexto recolectado.
 |---|---|---|
 | `knowledge-search` | Real | Recepcionista + Backoffice |
 | `chatwoot-handoff` | Real | Solo Backoffice |
-| `upsert-twenty-lead` | Mock (console.log + return success) | Solo Backoffice |
+| `upsert-twenty-lead` | Mock con contrato real (incluye `stage` enum NEW/CONTACTED/MEETING/PROPOSAL/WON/LOST) | Solo Backoffice + worker NURTURING |
 
 > Nota: la "delegación al backoffice" NO es una tool — usa el patrón nativo `agents: { backoffice }` + `Memory` de Mastra. Ver bitácora 2026-05-02.
 
@@ -182,7 +194,9 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
 - **Mock de Twenty** en v1 (lead registration), integración real en v2.
 - **Sin Slack ni Telegram** en v1. La tool `notify-mariano` quedó eliminada — si en v2 querés notificación a Mariano se reimplementa contra el canal definitivo (no asumimos Telegram).
-- **NURTURING (worker de seguimiento) entra en v1.** Reintentos a ~4h y ~22h sin respuesta del cliente, sólo dentro de la ventana de 24h de Meta y en horario laboral AR (9-19hs UTC-3). Cancela si la conversación está escalada (`open`), si el lead es `WON`/`LOST`, o tras 2 reintentos. Spec completo en `fama-design-v1.md §7`. Implementación queda planeada para post-cutover (no en el plan de Días 1-7 de abajo).
+- **NURTURING (worker de seguimiento) entra en v1.** Reintentos a ~4h y ~22h sin respuesta del cliente, sólo dentro de la ventana de 24h de Meta y en horario laboral AR (9-19hs UTC-3). Cancela si la conversación está escalada (`open`), si el lead es `WON`/`LOST`, o tras 2 reintentos. Spec completo en `fama-design-v1.md §7`.
+- **Primer turno hard-coded**: si el primer mensaje del cliente tiene <30 palabras y todavía no le respondimos nada en esa conversación, el handler postea un texto fijo de bienvenida sin invocar al LLM. Si tiene ≥30 palabras o ya hubo respuesta previa del bot, sigue por el flujo normal (recepcionista → backoffice). Spec en `fama-design-v1.md §4`.
+- **Bar mínimo del Backoffice = 4 datos** (Nivel 2 del diseño): empresa, caso de uso/problema, tamaño aproximado, indicio de timeline. Excepciones rígidas (pedido humano / urgencia / reclamo) bajan el bar a "nombre + canal de contacto" — el árbol del backoffice las evalúa primero. Spec en `fama-design-v1.md §5`.
 - **Mensaje de acknowledge inmediato** cuando el backoffice escala. Implementado como paso 0 de `chatwoot-handoff` (la tool recibe `ackMessage` por parámetro y lo postea como mensaje público antes de la secuencia 1-4). El webhook handler skipea el post del texto final del agente cuando detecta `replyHandled: true` para no duplicar.
 - **Calendly link**: vendrá un Cal.com personal de Mariano. Por ahora dejar como variable `CALENDLY_LINK` en config, vacío por defecto. Cuando esté el link real, se conecta. **No hardcodear ningún link** en prompts ni código.
 
@@ -336,5 +350,6 @@ Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile e
 | 2026-05-02 | Día 6-7: cierre de v1. Resto de tareas son operacionales y dependen de Mariano + Guille (ver "Lista de pendientes Mariano"). Código congelado a la espera de validación en Studio + smoke contra Chatwoot real antes del cutover. |
 | 2026-05-02 | Calibración post-Studio dry-run #1: prompt del recepcionista exige nombre + servicio específico + plazo antes de delegar (delegaba con "IA para mi empresa"); supervisor relay verbatim post-delegación (ahorra tokens y limpia la doble respuesta visible en Studio). Backoffice exige los 5 campos obligatorios (nombre, empresa, servicio específico, canal de contacto, plazo) antes de cualquier tool, y NO reintenta `chatwoot-handoff` cuando devuelve `success: false` (en su lugar mete fallback fijo apuntando a hola@fomologic.com). |
 | 2026-05-02 | Sincronización con `fama-design-v1.md` (cambios de alcance v1): (1) **`notify-mariano` ELIMINADA del v1**. Tool removida (`src/mastra/tools/notify-mariano.ts`), import + tool entry removidos del backoffice, instructions sin referencias a "casos calientes" ni Telegram. Si en v2 hace falta notificar a Mariano por canal externo, se reimplementa contra el canal definitivo (no asumimos Telegram). (2) **NURTURING entra en v1 scope** (estaba en "no en v1") — worker para revivir leads dormidos con 2 reintentos dentro de la ventana 24h Meta + horario AR; spec en `fama-design-v1.md §7`; implementación post-cutover. (3) Nuevos items en "Lo que NO va en v1": templates de Meta para reintentos >24h, inferencia de timezone del cliente, NURTURING sofisticado para humanos demorados, notificación a Mariano por canal externo. |
+| 2026-05-02 | Bloque 0 del diseño v1 sincronizado: diagrama de arquitectura ahora incluye worker NURTURING y branch del primer turno hard-coded (<30 palabras). Decisiones tomadas agrega: primer turno hard-coded (umbral 30 palabras + signal "primer turno = sin `last_outbound_at` registrado"), bar mínimo del Backoffice = 4 datos (no 5), excepciones rígidas bajan el bar a "nombre + canal de contacto". Tabla de tools refleja nuevo contrato de `upsert-twenty-lead` con `stage` enum. NURTURING deja de estar marcado "post-cutover" — entra en este sprint. `fama-design-v1.md §9` actualizado para reflejar la signature real de `chatwoot-handoff` con `ackMessage` (el diseño tenía un input desactualizado). Cambios de código vienen en bloques 1-4 separados. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.
