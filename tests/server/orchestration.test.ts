@@ -47,13 +47,16 @@ vi.mock('../../src/lib/chatwoot.js', async (importActual) => {
   return {
     ...actual,
     sendChatwootMessage: vi.fn(),
+    getContactConversations: vi.fn(),
   };
 });
 
 const { handleChatwootWebhook } = await import('../../src/server/webhook.js');
-const { sendChatwootMessage, ChatwootNotConfiguredError } = await import(
-  '../../src/lib/chatwoot.js'
-);
+const {
+  sendChatwootMessage,
+  getContactConversations,
+  ChatwootNotConfiguredError,
+} = await import('../../src/lib/chatwoot.js');
 const {
   setNurturingStoreClientForTests,
   _truncateForTests,
@@ -62,6 +65,7 @@ const {
 } = await import('../../src/lib/nurturing-store.js');
 const { WELCOME_TEXT } = await import('../../src/lib/welcome.js');
 const mockSend = vi.mocked(sendChatwootMessage);
+const mockGetContactConversations = vi.mocked(getContactConversations);
 
 function buildMockMastra(generateImpl: () => unknown) {
   const generate = vi.fn().mockImplementation(generateImpl);
@@ -75,6 +79,9 @@ function buildMockMastra(generateImpl: () => unknown) {
 describe('orchestration: webhook → recepcionista', () => {
   beforeEach(async () => {
     mockSend.mockReset();
+    mockGetContactConversations.mockReset();
+    // Default: no prior conversations for the contact (unknown customer).
+    mockGetContactConversations.mockResolvedValue([]);
     const client = createClient({ url: ':memory:' });
     await setNurturingStoreClientForTests(client);
     await _truncateForTests();
@@ -232,5 +239,177 @@ describe('orchestration: webhook → recepcionista', () => {
     expect(outcome.body).toEqual({ error: 'message_extraction_failed' });
     expect(generate).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('orchestration: known-customer detection', () => {
+  beforeEach(async () => {
+    mockSend.mockReset();
+    mockGetContactConversations.mockReset();
+    mockGetContactConversations.mockResolvedValue([]);
+    const client = createClient({ url: ':memory:' });
+    await setNurturingStoreClientForTests(client);
+    await _truncateForTests();
+  });
+
+  // Test 1 — no prior conversations → normal flow with neutral welcome.
+  it('contact with no prior conversations → unknown, sends new welcome text', async () => {
+    mockGetContactConversations.mockResolvedValue([]);
+    const { mastra, generate } = buildMockMastra(async () => ({ text: 'no llamar', steps: [] }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true, welcome: true } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mockGetContactConversations).toHaveBeenCalledWith({ contactId: 91 });
+    expect(mockSend).toHaveBeenCalledWith({ conversationId: 4248, content: WELCOME_TEXT });
+    expect(WELCOME_TEXT).toBe('Hola, gracias por escribirnos a FOMO. ¿En qué puedo ayudarte?');
+  });
+
+  // Test 2 — 1 prior conversation, 5 days old, 5 messages → known, no welcome, LLM with context.
+  it('contact with 1 valid prior (5 days, 5 msgs) → known, skips welcome, injects context to LLM', async () => {
+    const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+    mockGetContactConversations.mockResolvedValue([
+      { id: 4000, inboxId: 3, messageCount: 5, lastActivityAtMs: fiveDaysAgo },
+    ]);
+    const { mastra, generate } = buildMockMastra(async () => ({
+      text: 'Hola de nuevo. ¿En qué te puedo ayudar?',
+      steps: [],
+    }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true } });
+    expect(generate).toHaveBeenCalledTimes(1);
+    const generatedInput = generate.mock.calls[0]![0] as string;
+    expect(generatedInput).toContain('[CONTEXTO_SISTEMA]');
+    expect(generatedInput).toContain('Este es un cliente conocido');
+    expect(generatedInput).toContain('1 conversación previa');
+    expect(generatedInput).toContain('Hola, info');
+    expect(mockSend).toHaveBeenCalledWith({
+      conversationId: 4248,
+      content: 'Hola de nuevo. ¿En qué te puedo ayudar?',
+    });
+  });
+
+  // Test 3 — 1 prior conversation, 5 days old, but only 1 message (abandoned) → not known.
+  it('contact with 1 abandoned prior (1 msg only) → not known, normal welcome flow', async () => {
+    const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+    mockGetContactConversations.mockResolvedValue([
+      { id: 4000, inboxId: 3, messageCount: 1, lastActivityAtMs: fiveDaysAgo },
+    ]);
+    const { mastra, generate } = buildMockMastra(async () => ({ text: 'x', steps: [] }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true, welcome: true } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledWith({ conversationId: 4248, content: WELCOME_TEXT });
+  });
+
+  // Test 4 — prior conversation 60 days old → out of window → not known.
+  it('contact with prior conversation 60 days old → out of window, not known', async () => {
+    const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    mockGetContactConversations.mockResolvedValue([
+      { id: 4000, inboxId: 3, messageCount: 10, lastActivityAtMs: sixtyDaysAgo },
+    ]);
+    const { mastra, generate } = buildMockMastra(async () => ({ text: 'x', steps: [] }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true, welcome: true } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledWith({ conversationId: 4248, content: WELCOME_TEXT });
+  });
+
+  // Test 5 — Chatwoot API returns 500 → fail closed → normal welcome flow.
+  it('Chatwoot API 500 on lookup → fail-closed, treats as unknown, sends welcome', async () => {
+    mockGetContactConversations.mockRejectedValue(
+      new Error('Chatwoot API error: 500 Server Error — boom'),
+    );
+    const { mastra, generate } = buildMockMastra(async () => ({ text: 'x', steps: [] }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true, welcome: true } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledWith({ conversationId: 4248, content: WELCOME_TEXT });
+  });
+
+  // Test 6 — timeout (AbortError) → fail closed → normal welcome flow.
+  it('Chatwoot API timeout (AbortError) → fail-closed, treats as unknown', async () => {
+    const abortErr = new DOMException('The operation was aborted.', 'AbortError');
+    mockGetContactConversations.mockRejectedValue(abortErr);
+    const { mastra, generate } = buildMockMastra(async () => ({ text: 'x', steps: [] }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola, info'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true, welcome: true } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledWith({ conversationId: 4248, content: WELCOME_TEXT });
+  });
+
+  // Test 7 — 3 valid prior conversations → known, context includes correct count.
+  it('contact with 3 valid prior conversations within 30 days → known, count=3 in context', async () => {
+    const now = Date.now();
+    mockGetContactConversations.mockResolvedValue([
+      { id: 4000, inboxId: 3, messageCount: 4, lastActivityAtMs: now - 3 * 24 * 60 * 60 * 1000 },
+      { id: 4001, inboxId: 3, messageCount: 6, lastActivityAtMs: now - 12 * 24 * 60 * 60 * 1000 },
+      { id: 4002, inboxId: 3, messageCount: 2, lastActivityAtMs: now - 25 * 24 * 60 * 60 * 1000 },
+      // Out-of-window — should NOT count.
+      { id: 4003, inboxId: 3, messageCount: 8, lastActivityAtMs: now - 50 * 24 * 60 * 60 * 1000 },
+      // Wrong inbox — should NOT count.
+      { id: 4004, inboxId: 99, messageCount: 5, lastActivityAtMs: now - 2 * 24 * 60 * 60 * 1000 },
+      // The current conversation — should NOT count.
+      { id: 4248, inboxId: 3, messageCount: 1, lastActivityAtMs: now },
+    ]);
+    const { mastra, generate } = buildMockMastra(async () => ({
+      text: 'Hola de nuevo, contame.',
+      steps: [],
+    }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody('Hola'),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true } });
+    expect(generate).toHaveBeenCalledTimes(1);
+    const generatedInput = generate.mock.calls[0]![0] as string;
+    expect(generatedInput).toContain('3 conversaciones previas');
+    // Most recent valid was 3 days ago.
+    expect(generatedInput).toMatch(/hace 3 días/);
   });
 });

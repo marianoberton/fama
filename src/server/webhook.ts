@@ -2,13 +2,21 @@ import type { Mastra } from '@mastra/core';
 import { filterWebhook } from './filter.js';
 import { loadEnv } from '../config/env.js';
 import { logger } from '../lib/logger.js';
-import { sendChatwootMessage, ChatwootNotConfiguredError } from '../lib/chatwoot.js';
+import {
+  sendChatwootMessage,
+  getContactConversations,
+  ChatwootNotConfiguredError,
+} from '../lib/chatwoot.js';
 import {
   recordInbound,
   recordOutbound,
   getConversation,
 } from '../lib/nurturing-store.js';
 import { shouldSendHardcodedWelcome, WELCOME_TEXT } from '../lib/welcome.js';
+import {
+  detectKnownCustomer,
+  formatKnownCustomerContext,
+} from '../lib/known-customer.js';
 
 export interface HandlerOutcome {
   status: 200 | 202 | 401 | 500;
@@ -77,8 +85,59 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     );
   });
 
+  // Known-customer detection: only meaningful on the first turn (otherwise
+  // we already replied in this thread and welcome / context is moot).
+  // Fail closed: any error → treat as unknown and proceed normally.
+  let knownContext: string | null = null;
+  if (isFirstTurn) {
+    try {
+      const conversations = await getContactConversations({
+        contactId: message.contactId,
+      });
+      const now = Date.now();
+      const signal = detectKnownCustomer({
+        conversations,
+        now,
+        inboxId: env.CHATWOOT_INBOX_ID,
+        excludeConversationId: message.conversationId,
+      });
+      if (signal.known) {
+        knownContext = formatKnownCustomerContext({ signal, now });
+        logger.info(
+          {
+            conversationId: message.conversationId,
+            contactId: message.contactId,
+            priorCount: signal.count,
+            lastConversationAt: signal.lastConversationAt,
+          },
+          'known-customer: detected — skipping welcome, injecting context to LLM',
+        );
+      } else {
+        logger.info(
+          {
+            conversationId: message.conversationId,
+            contactId: message.contactId,
+            scanned: conversations.length,
+          },
+          'known-customer: not detected — first contact, normal flow',
+        );
+      }
+    } catch (err) {
+      logger.error(
+        {
+          err: (err as Error).message,
+          conversationId: message.conversationId,
+          contactId: message.contactId,
+        },
+        'known-customer: lookup failed — fail-closed, treating as not known',
+      );
+    }
+  }
+
   // Hard-coded welcome path: short first message → fixed greeting, no LLM.
-  if (shouldSendHardcodedWelcome({ text: message.content, isFirstTurn })) {
+  // Skipped when the client is a known customer (we go straight to the LLM
+  // with prior-context so the agent can greet them by their history).
+  if (knownContext === null && shouldSendHardcodedWelcome({ text: message.content, isFirstTurn })) {
     logger.info(
       {
         conversationId: message.conversationId,
@@ -118,7 +177,9 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
   // the backoffice subagent based on its description + instructions.
   try {
     const recepcionista = input.mastra.getAgent('recepcionista');
-    const reply = await recepcionista.generate(message.content, {
+    const llmInput =
+      knownContext !== null ? `${knownContext}\n\n${message.content}` : message.content;
+    const reply = await recepcionista.generate(llmInput, {
       memory: {
         thread: `chatwoot-${message.conversationId}`,
         resource: `contact-${message.contactId}`,
