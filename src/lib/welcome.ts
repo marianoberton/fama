@@ -13,8 +13,7 @@
 
 export const WELCOME_WORD_THRESHOLD = 30;
 
-export const WELCOME_TEXT =
-  'Hola, gracias por escribirnos. Soy FAMA, del equipo FOMO. Contame un poco sobre tu empresa y qué andás buscando, así te puedo orientar mejor.';
+export const WELCOME_TEXT = 'Hola, gracias por escribirnos a FOMO. ¿En qué puedo ayudarte?';
 
 export function wordCount(text: string): number {
   const trimmed = text.trim();
