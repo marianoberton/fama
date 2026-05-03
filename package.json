@@ -6,7 +6,7 @@
   "description": "FAMA — agente de atención al cliente de FOMO sobre Mastra",
   "scripts": {
     "dev": "mastra dev",
-    "build": "mastra build",
+    "build": "mastra build --studio",
     "start": "mastra start",
     "test": "vitest run",
     "test:watch": "vitest",
