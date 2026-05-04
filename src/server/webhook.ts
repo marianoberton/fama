@@ -1,4 +1,5 @@
 import type { Mastra } from '@mastra/core';
+import { RequestContext } from '@mastra/core/di';
 import { filterWebhook } from './filter.js';
 import { loadEnv } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -204,12 +205,19 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     const recepcionista = input.mastra.getAgent('recepcionista');
     const llmInput =
       knownContext !== null ? `${knownContext}\n\n${message.content}` : message.content;
+    // Inject conversationId/contactId via RequestContext so the chatwoot-handoff
+    // tool reads them from there instead of from the LLM input (which would let
+    // the model hallucinate IDs in Studio or partial-prompt scenarios).
+    const requestContext = new RequestContext();
+    requestContext.set('conversationId', message.conversationId);
+    requestContext.set('contactId', message.contactId);
     const reply = await recepcionista.generate(llmInput, {
       memory: {
         thread: `chatwoot-${message.conversationId}`,
         resource: `contact-${message.contactId}`,
       },
       maxSteps: 8,
+      requestContext,
     });
 
     const skipFinalPost = handoffAlreadyPostedAck(reply);

@@ -180,11 +180,6 @@ export const chatwootHandoff = createTool({
   description:
     'Escala la conversación de Chatwoot a un humano del equipo: postea un ack público al cliente (paso 0), aplica label, deja nota privada con contexto, asigna al team y abre la conversación. Usar cuando el cliente pide hablar con persona, hay urgencia/reclamo, o se cerró una venta y hay que pasarla al humano. El ack y la categoría son obligatorios.',
   inputSchema: z.object({
-    conversationId: z
-      .number()
-      .int()
-      .positive()
-      .describe('ID de la conversación en Chatwoot.'),
     category: z
       .enum(CHATWOOT_VALID_LABELS)
       .describe('Label de Chatwoot. Sólo valores de CHATWOOT_VALID_LABELS.'),
@@ -208,5 +203,15 @@ export const chatwootHandoff = createTool({
     replyHandled: z.boolean(),
     idempotentSkip: z.boolean().optional(),
   }),
-  execute: async (input) => runHandoff(input),
+  // conversationId comes from RequestContext (set by webhook handler), NOT from
+  // the LLM. This prevents hallucinated IDs from Studio chats or partial prompts.
+  execute: async (input, context) => {
+    const conversationId = context?.requestContext?.get('conversationId');
+    if (typeof conversationId !== 'number') {
+      throw new Error(
+        'chatwoot-handoff: conversationId missing from requestContext — only callable inside the webhook flow',
+      );
+    }
+    return runHandoff({ ...input, conversationId });
+  },
 });
