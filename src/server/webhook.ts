@@ -54,7 +54,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
       logger.warn({ reason: result.reason }, 'webhook rejected');
       return { status: 401, body: { error: result.reason } };
     }
-    logger.debug({ reason: result.reason }, 'webhook ignored');
+    logger.warn({ reason: result.reason }, 'webhook ignored');
     return { status: 200, body: { ignored: result.reason } };
   }
 
@@ -295,7 +295,15 @@ function extractMessage(body: unknown): ExtractedMessage | null {
     ? conversation['id']
     : null;
 
-  const messages = Array.isArray(body['messages']) ? body['messages'] : [];
+  // Chatwoot v4.12.1 nests messages inside `conversation.messages`. Older /
+  // alternate shapes deliver them at the root — keep that as fallback so a
+  // single change here doesn't break anything still emitting the old shape.
+  const nestedMessages =
+    isObject(conversation) && Array.isArray(conversation['messages'])
+      ? conversation['messages']
+      : null;
+  const rootMessages = Array.isArray(body['messages']) ? body['messages'] : null;
+  const messages = nestedMessages ?? rootMessages ?? [];
   const msg = messages[0];
   if (!isObject(msg)) return null;
 

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "description": "Happy path with the real Chatwoot v4.12.1 payload shape: messages array nested under conversation, root sender has NO type field (only conversation.messages[0].sender.type === 'contact'), root message_type is the string 'incoming'. Filter must pass on this shape.",
+    "expected": { "pass": true }
+  },
+  "account": { "id": 1, "name": "fomo" },
+  "content": "hola",
+  "content_type": "text",
+  "conversation": {
+    "id": 8,
+    "inbox_id": 3,
+    "status": "pending",
+    "messages": [
+      {
+        "id": 76,
+        "content": "hola",
+        "message_type": 0,
+        "private": false,
+        "created_at": "2026-05-04T02:39:28.771Z",
+        "sender": {
+          "id": 2,
+          "type": "contact",
+          "name": "Mariano",
+          "phone_number": "+5491132766709"
+        }
+      }
+    ]
+  },
+  "created_at": "2026-05-04T02:39:28.771Z",
+  "id": 76,
+  "inbox": { "id": 3, "name": "Fomo Contacto" },
+  "message_type": "incoming",
+  "private": false,
+  "sender": {
+    "id": 2,
+    "name": "Mariano",
+    "phone_number": "+5491132766709"
+  },
+  "source_id": "wamid.HBgNNTQ5MTEzMjc2NjcwORUCABIYIDIzNEFCQzEyMzQ1Njc4OTABBA==",
+  "event": "message_created"
+}

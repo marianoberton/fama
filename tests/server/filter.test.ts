@@ -124,6 +124,22 @@ describe('filterWebhook — 6 rules from CLAUDE.md', () => {
     });
     expect(result).toEqual({ pass: true });
   });
+
+  // Real Chatwoot v4.12.1 payload: messages array nested under `conversation`,
+  // root `sender` has NO `type` field, root `message_type` is the string
+  // 'incoming'. Filter must pick the message from conversation.messages[0]
+  // (where message_type IS 0 and sender.type IS 'contact'). Without this
+  // path, every real webhook gets ignored as message_type_not_incoming.
+  it('chatwoot v4.12.1 nested shape: passes by reading conversation.messages[0]', () => {
+    const { body } = loadFixture('08-happy-path-v4-12.json');
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body,
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({ pass: true });
+  });
 });
 
 describe('filterWebhook — defensive shape checks', () => {

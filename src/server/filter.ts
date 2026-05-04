@@ -82,9 +82,14 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function pickFirstMessage(body: unknown): unknown {
   if (!isObject(body)) return undefined;
-  const messages = (body as Record<string, unknown>)['messages'];
-  if (Array.isArray(messages)) return messages[0];
-  // Some Chatwoot events deliver the message inline rather than under
-  // `messages[0]`. CLAUDE.md only mentions `messages?.[0]`, so we stick to that.
+  // Chatwoot v4.12.1 nests the messages array inside `conversation`. Older /
+  // alternate event shapes deliver it at the root — keep that as fallback.
+  const conversation = (body as Record<string, unknown>)['conversation'];
+  if (isObject(conversation)) {
+    const nested = (conversation as Record<string, unknown>)['messages'];
+    if (Array.isArray(nested) && nested.length > 0) return nested[0];
+  }
+  const rootMessages = (body as Record<string, unknown>)['messages'];
+  if (Array.isArray(rootMessages)) return rootMessages[0];
   return undefined;
 }

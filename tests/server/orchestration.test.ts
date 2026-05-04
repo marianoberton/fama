@@ -248,6 +248,56 @@ describe('orchestration: webhook → recepcionista', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
+  it('chatwoot v4.12.1 nested shape: extractMessage reads conversation.messages[0] and invokes agent', async () => {
+    // Same shape as fixture 08 but with a long message so welcome path is skipped
+    // and the LLM gets invoked. Verifies the entire webhook → extract → generate
+    // path works on the real Chatwoot v4.12.1 payload (no root `messages` array).
+    const v412Body = {
+      account: { id: 1 },
+      content: LONG_MESSAGE,
+      conversation: {
+        id: 8,
+        inbox_id: 3,
+        status: 'pending',
+        messages: [
+          {
+            id: 76,
+            content: LONG_MESSAGE,
+            message_type: 0,
+            sender: { id: 2, type: 'contact', name: 'Mariano' },
+          },
+        ],
+      },
+      id: 76,
+      message_type: 'incoming',
+      sender: { id: 2, name: 'Mariano' },
+      event: 'message_created',
+    };
+    const { mastra, generate } = buildMockMastra(async () => ({
+      text: 'Listo, te ayudo.',
+      steps: [],
+    }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: JSON.stringify(v412Body),
+      mastra,
+    });
+
+    expect(outcome).toEqual({ status: 202, body: { received: true } });
+    expect(generate).toHaveBeenCalledWith(
+      LONG_MESSAGE,
+      expect.objectContaining({
+        memory: { thread: 'chatwoot-8', resource: 'contact-2' },
+      }),
+    );
+    expect(mockSend).toHaveBeenCalledWith({
+      conversationId: 8,
+      content: 'Listo, te ayudo.',
+    });
+  });
+
   it('duplicate Chatwoot retry (same message id) → 200 silent, agent NOT invoked, no outbound', async () => {
     // First delivery: full happy path. Second delivery: identical body — must
     // be deduped before any side effect.
