@@ -115,12 +115,15 @@ Reglas de filtrado en orden:
 
 1. Path token inválido → `401`.
 2. `body.account.id !== CHATWOOT_ACCOUNT_ID` → `401`.
-3. `body.event !== 'message_created'` → `200` silencioso.
-4. `body.messages?.[0]?.message_type !== 0` (donde 0 = incoming) → `200`.
-5. `body.messages?.[0]?.sender?.type !== 'contact'` → `200`.
-6. Contenido vacío o solo whitespace → `200`.
+3. `body.conversation?.status !== 'pending'` → `200` silencioso (`conversation_not_pending`). Una vez que un humano toma la conversación, Chatwoot flipea el status de `pending` a `open`; el bot debe callar para no hablar encima del humano. Aplica también a `resolved` (cerrada) y `snoozed` (pausada).
+4. `body.event !== 'message_created'` → `200` silencioso.
+5. `body.conversation?.messages?.[0]?.message_type !== 0` (donde 0 = incoming; fallback a `body.messages?.[0]` por compatibilidad con shapes viejos) → `200`.
+6. `body.conversation?.messages?.[0]?.sender?.type !== 'contact'` → `200`.
+7. Contenido vacío o solo whitespace → `200`.
 
 Recién después de esto, invocar al agente.
+
+**Handback humano→bot**: cuando un humano termina de atender y quiere que el bot retome la conversación, cambia el status de `open` a `pending` desde el dropdown del header en la UI de Chatwoot. El próximo mensaje entrante pasa la regla 3 (status pending) y FAMA lo procesa. No existe un botón "send to bot" dedicado — el flip de status manual ES el mecanismo (validado contra docs oficiales de Chatwoot y código de Captain). Para auto-handback por inactividad va a hacer falta un worker dedicado en v2: las automation rules de Chatwoot v4.12.1 no exponen "set status to pending" como acción ni tienen evento de inactividad.
 
 ## Patrones de la tool `chatwoot-handoff`
 

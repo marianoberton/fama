@@ -1,7 +1,7 @@
 /**
  * Pure filter for incoming Chatwoot webhooks.
  *
- * Implements the 6 rules from CLAUDE.md ("Filtrado obligatorio del webhook")
+ * Implements the 7 rules from CLAUDE.md ("Filtrado obligatorio del webhook")
  * in the exact order documented there. No side effects, no env access — the
  * caller passes everything in.
  */
@@ -40,6 +40,20 @@ export function filterWebhook(input: FilterInput): FilterResult {
     : undefined;
   if (typeof accountId !== 'number' || accountId !== expectedAccountId) {
     return { pass: false, status: 401, reason: 'account_mismatch' };
+  }
+
+  // Rule 7 (added) — conversation.status !== 'pending' → 200 silent. Once a
+  // human takes over a conversation, Chatwoot flips the status from 'pending'
+  // to 'open'; the bot must stop responding so it doesn't talk over the
+  // human. Same applies to 'resolved' (closed) and 'snoozed' (paused).
+  // Reactivating the bot is a manual action: an agent flips the status back
+  // to 'pending' from the conversation header dropdown in the Chatwoot UI.
+  const conversation = (body as Record<string, unknown>)['conversation'];
+  const conversationStatus = isObject(conversation)
+    ? (conversation as Record<string, unknown>)['status']
+    : undefined;
+  if (conversationStatus !== 'pending') {
+    return { pass: false, status: 200, reason: 'conversation_not_pending' };
   }
 
   // Rule 3 — event !== 'message_created' → 200 silent

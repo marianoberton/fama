@@ -227,6 +227,9 @@ describe('orchestration: webhook → recepcionista', () => {
     const malformed = {
       event: 'message_created',
       account: { id: 1 },
+      // conversation is present (status pending so rule 7 passes) but lacks
+      // an id, which is what extractMessage needs.
+      conversation: { status: 'pending' },
       messages: [
         {
           message_type: 0,

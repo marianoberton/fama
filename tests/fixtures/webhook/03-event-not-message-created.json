@@ -14,7 +14,7 @@
   ],
   "conversation": {
     "id": 4244,
-    "status": "open",
+    "status": "pending",
     "channel": "Channel::Api"
   }
 }

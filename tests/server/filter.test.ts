@@ -142,6 +142,114 @@ describe('filterWebhook — 6 rules from CLAUDE.md', () => {
   });
 });
 
+// Rule 7 — once a human takes over (status=open) the bot must stop responding.
+// Same for resolved/snoozed. Only `pending` lets the bot process. The body
+// shape mirrors Chatwoot v4.12.1 (conversation.messages, no root messages).
+describe('filterWebhook — rule 7: conversation status', () => {
+  function buildV412Body(status: string): Record<string, unknown> {
+    return {
+      account: { id: EXPECTED_ACCOUNT_ID, name: 'fomo' },
+      content: 'hola',
+      content_type: 'text',
+      conversation: {
+        id: 8,
+        inbox_id: 3,
+        status,
+        messages: [
+          {
+            id: 76,
+            content: 'hola',
+            message_type: 0,
+            private: false,
+            sender: {
+              id: 2,
+              type: 'contact',
+              name: 'Mariano',
+              phone_number: '+5491132766709',
+            },
+          },
+        ],
+      },
+      id: 76,
+      inbox: { id: 3, name: 'Fomo Contacto' },
+      message_type: 'incoming',
+      private: false,
+      sender: { id: 2, name: 'Mariano' },
+      event: 'message_created',
+    };
+  }
+
+  it('status=open (human took over) → 200 ignored conversation_not_pending', () => {
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body: buildV412Body('open'),
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({
+      pass: false,
+      status: 200,
+      reason: 'conversation_not_pending',
+    });
+  });
+
+  it('status=resolved (closed) → 200 ignored conversation_not_pending', () => {
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body: buildV412Body('resolved'),
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({
+      pass: false,
+      status: 200,
+      reason: 'conversation_not_pending',
+    });
+  });
+
+  it('status=snoozed (paused) → 200 ignored conversation_not_pending', () => {
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body: buildV412Body('snoozed'),
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({
+      pass: false,
+      status: 200,
+      reason: 'conversation_not_pending',
+    });
+  });
+
+  it('status=pending → passes through to remaining rules', () => {
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body: buildV412Body('pending'),
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({ pass: true });
+  });
+
+  it('missing conversation.status → rejected as conversation_not_pending (fail-safe)', () => {
+    // If status is missing for whatever reason, default to ignoring rather
+    // than risking the bot replying on a conversation it shouldn't own.
+    const body = buildV412Body('pending');
+    delete (body.conversation as Record<string, unknown>).status;
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body,
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({
+      pass: false,
+      status: 200,
+      reason: 'conversation_not_pending',
+    });
+  });
+});
+
 describe('filterWebhook — defensive shape checks', () => {
   it('rejects non-object body with 401', () => {
     const result = filterWebhook({
@@ -171,6 +279,9 @@ describe('filterWebhook — defensive shape checks', () => {
       body: {
         event: 'message_created',
         account: { id: EXPECTED_ACCOUNT_ID },
+        // conversation present with status=pending so rule 7 passes; the
+        // empty messages array is what should trigger rule 4.
+        conversation: { status: 'pending' },
         messages: [],
       },
       expectedAccountId: EXPECTED_ACCOUNT_ID,

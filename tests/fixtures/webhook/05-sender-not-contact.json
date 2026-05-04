@@ -13,7 +13,7 @@
   "inbox": { "id": 3, "name": "WhatsApp FOMO" },
   "conversation": {
     "id": 4246,
-    "status": "open",
+    "status": "pending",
     "channel": "Channel::Api"
   },
   "sender": {
