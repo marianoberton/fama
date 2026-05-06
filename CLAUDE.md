@@ -211,6 +211,38 @@ Reemplazo del mock de `upsert-twenty-lead` por integración real contra Twenty s
 
 **Para el worker NURTURING (LOST)**: el `phone` ahora se guarda en la tabla `nurturing_conversations` (columna agregada en migración idempotente). Cuando el worker marca un lead como LOST tras 24h sin respuesta, llama `runUpsertTwentyLead({ stage: 'LOST', ... })` con el phone real del row. Si el row es de v1 sin phone, skipea el upsert con warning.
 
+## Multimodalidad (v2 — Sprint 2)
+
+WhatsApp manda audios (`.opus` / `.ogg`) e imágenes (`.jpg` / `.png` / `.webp`) que llegan a FAMA con `content` vacío y el archivo en `messages[0].attachments[0].data_url`. Sprint 2 transcribe / describe esos archivos y los inyecta como texto al pipeline normal — recepcionista y backoffice siguen viendo strings y nada cambia para ellos.
+
+**Tipos soportados**:
+- `audio` → Whisper-1 transcribe a castellano (idioma fijo `es`).
+- `image` → gpt-4o vision describe en 1-3 oraciones (también castellano).
+- `video`, `file`, `fallback` → no procesados; cae en filter rule 6 si el mensaje no tiene texto.
+
+**Flow del webhook con attachments**:
+
+1. `extractMessage` extrae `attachments[]` raw del payload.
+2. `processAttachments` (en `src/lib/attachment-processor.ts`):
+   - Audio: descarga el blob desde Chatwoot (`fetch` sin auth — Active Storage es signed pero público, timeout 15s) → `transcribeAudio()` → texto.
+   - Imagen: pasa la URL directo a `describeImage()` — gpt-4o vision consume URLs públicas, no hace falta bajar.
+   - Caps duros antes del call a OpenAI: 5MB audio (~5min de opus, margen sobre los 60s reales esperados), 10MB imagen.
+   - Fallos devuelven placeholder (`[audio del cliente, no se pudo transcribir]`, etc.) — la conversación nunca se rompe por culpa de media.
+3. `effectiveContent` reemplaza al `content` original con la concatenación: `texto original (si lo había) + [audio del cliente]: <transcripción> + [imagen del cliente]: <descripción>`.
+4. **Welcome path skipea cuando `hasMedia=true`** (D4 del sprint). Razón: un audio "hola" de 2 palabras igual merece LLM, porque el welcome NO escribe en Memory de Mastra — si saltáramos el LLM, el segundo turno del cliente vendría sin contexto del primero. Texto puro <30 palabras y primer turno → welcome como antes.
+5. LLM normal procesa el `effectiveContent`. Memory captura todo el thread.
+6. **Después del LLM, sync de attachments a Twenty** (CLAUDE.md "guardar todos en CRM" — D3 del sprint): `findOrCreatePersonByPhone` (si no existe Person, lo creamos mínimo con stage NEW + `firstName='Anónimo'`) y `createAttachment` por cada audio/imagen. `fullPath` = `data_url` de Chatwoot, `fileCategory` = `AUDIO` / `IMAGE`. Errores son no-fatales y solo loggean.
+
+**Filter rule 6 ajustada** (en `src/server/filter.ts`): mensajes con `content` vacío PASAN el filtro si tienen al menos un attachment de tipo `audio` o `image`. Video-only sigue rechazado con `empty_content` (sin pre-procesador para video en v2).
+
+**Caveat conocido — `fullPath` apunta a Chatwoot**: el link al attachment en Twenty UI requiere que el visitante esté logged en Chatwoot. Twenty REST no expone endpoint de upload de blob, así que para v2 dejamos el link tal cual. Si en v3 querés ver attachments "en frío", hay que subir a un bucket propio (S3/etc) y guardar esa URL en lugar de la de Chatwoot.
+
+**Costos** (orden de magnitud, sin volumen real todavía):
+- Audio: ~USD 0.006/min en Whisper. Un audio típico de 15s ~USD 0.0015.
+- Imagen: ~USD 0.005 por imagen estándar en gpt-4o vision input.
+
+**Dep nueva**: `openai@6.x` (oficial). Es la primera vez que se usa el SDK directo de OpenAI en este proyecto — el resto del código sigue usando Mastra para el agente. La razón de tener ambos es que Whisper requiere multipart upload (fetch crudo se vuelve feo) y vision tiene un schema más limpio en el SDK.
+
 > Nota: la "delegación al backoffice" NO es una tool — usa el patrón nativo `agents: { backoffice }` + `Memory` de Mastra. Ver bitácora 2026-05-02.
 
 **No agregues tools sin discutirlo primero.** Si pensás que falta una, decímelo, lo evaluamos juntos. Patrón aprendido del sistema viejo: las tools acumuladas sin curaduría generaron deuda técnica grande.
@@ -236,6 +268,7 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 - **Sin retry automático** en handoff. Falla → log ERROR → reintentos vienen del flujo natural del agente.
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
 - **Twenty real** desde v2 Sprint 1 (2026-05-05). Reemplaza el mock de v1. Ver sección "Twenty CRM (v2 — Sprint 1)" arriba.
+- **Multimodalidad (audio + imagen)** desde v2 Sprint 2 (2026-05-06). Audios via Whisper, imágenes via gpt-4o vision; ambos se transcriben/describen a texto antes del LLM y se guardan como attachment en Twenty. Welcome path skipea cuando hay media para no perder info. Ver sección "Multimodalidad (v2 — Sprint 2)" arriba.
 - **Sin Slack ni Telegram** en v1. La tool `notify-mariano` quedó eliminada — si en v2 querés notificación a Mariano se reimplementa contra el canal definitivo (no asumimos Telegram).
 - **NURTURING (worker de seguimiento) entra en v1.** Reintentos a ~4h y ~22h sin respuesta del cliente, sólo dentro de la ventana de 24h de Meta y en horario laboral AR (9-19hs UTC-3). Cancela si la conversación está escalada (`open`), si el lead es `WON`/`LOST`, o tras 2 reintentos. Spec completo en `fama-design-v1.md §7`.
 - **Primer turno hard-coded**: si el primer mensaje del cliente tiene <30 palabras y todavía no le respondimos nada en esa conversación, el handler postea un texto fijo de bienvenida sin invocar al LLM. Si tiene ≥30 palabras o ya hubo respuesta previa del bot, sigue por el flujo normal (recepcionista → backoffice). Spec en `fama-design-v1.md §4`.
@@ -368,6 +401,20 @@ Lo que el código no puede resolver por sí solo. Cuanto antes se haga, antes se
   - Si pediste hablar con humano: stage=MEETING, `exception=PEDIDO_HUMANO`, Note adjunta al Person con el resumen.
 - [ ] Si el smoke aparece OK pero querés que la API key se rote (recomendado, ya quedó pegada en el chat de Claude Code), generá una nueva en `https://crm.fomo.com.ar/settings/api-webhooks`, pegala en `.env`, y reiniciá el contenedor.
 
+### Validación pre-cutover (v2 Sprint 2 — Multimodalidad)
+
+- [ ] Smoke con audio: mandate un audio de WhatsApp diciendo algo concreto ("hola, soy Mariano de FOMO, quiero info"). Verificar:
+  - FAMA responde algo coherente con la transcripción (no un welcome genérico).
+  - En Twenty: Person con `messageCount` incrementado, attachment AUDIO adjunto con `fullPath` que abre el .ogg en Chatwoot al hacer click.
+  - En logs del contenedor: línea `webhook: attachments processed` con `mediaCount: 1`, `hasMedia: true`. Si la transcripción falló, línea de Whisper con error visible.
+- [ ] Smoke con imagen: mandate una foto de algo (un cartel, un screenshot). Verificar:
+  - FAMA responde describiendo lo que ve / contestando sobre la imagen.
+  - En Twenty: Person con attachment IMAGE adjunto, link al .jpg.
+  - Logs muestran descripción no vacía.
+- [ ] Smoke con audio + texto en la misma tanda: mandate audio y a continuación texto. Verificar que el LLM tiene contexto de los dos turnos.
+- [ ] (opcional) Smoke con video: mandate un video. Verificar que FAMA NO responde (filter rule 6 lo rechaza por `empty_content`) — comportamiento esperado en v2.
+- [ ] Confirmar costos: revisar dashboard de OpenAI a las 24-48h para ver el spend por Whisper + vision con tu volumen real.
+
 ### Cutover
 
 - [ ] En Chatwoot via Rails console, repuntar el agent bot al endpoint nuevo:
@@ -406,6 +453,7 @@ Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile e
 | 2026-05-03 | Dedupe de mensajes entrantes implementado en `src/lib/dedup-store.ts`. Tabla `processed_messages` en `mastra.db`. TTL 5 min, cleanup setInterval cada 30 min (skip en test). Idempotencia atómica vía INSERT OR IGNORE en `tryMarkProcessed`. Hook en webhook handler después del filtrado de 6 reglas y antes del welcome/agente. Razón: Chatwoot puede retransmitir eventos por timeout, sin dedupe FAMA mandaría 2 respuestas al mismo mensaje. Decisión D3 del plan de cutover. |
 | 2026-05-03 | Knowledge content: `pricing.md` y `faqs.md` completados con datos reales. Pricing refleja los 4 planes del sitio (Starter USD 299 / Equipo USD 699 / Completo USD 1.099 / Enterprise a convenir) + setup únicos + factores que justifican el "desde" (integraciones + empleado puntual). FAQs cubre las 9 categorías originales del CLAUDE.md + 9 más útiles tomadas del sitio web, con tono ajustado para FAMA (sin slogans ni promesas de SLA). Datos sensibles redactado cauto sin sobre-prometer; escalado a humano confirma derivación; capacitaciones desde USD 1.000; casos de éxito redactado vago para no comprometer volumen. `sales.md` queda pendiente para próxima sesión. |
 | 2026-05-03 | `sales.md` completado, paso 4 cerrado completo. Estructura: 8 secciones h2 (Por qué FOMO / ChatGPT / costo de no automatizar / discovery / 3 objeciones promovidas a h2 / proceso). Contenido refinado en sesión: framing "herramienta vs sistema" para diferenciación con ChatGPT, redefinición de "caro" basada en costo de empleados poco productivos, técnica de discovery "magia para resolver un problema". Sección "Cuándo FOMO no es la mejor opción" eliminada (contradice estrategia de captura amplia documentada). ~700 palabras. Las 3 objeciones quedaron como h2 (no h3) siguiendo el aprendizaje de `pricing.md` para que el parser de knowledge las indexe individualmente. |
+| 2026-05-06 | **v2 Sprint 2 — Multimodalidad (audios + imágenes)**. Decisiones del sprint: (D1) Audios → Whisper-1 con `language='es'` fijo, transcripción reemplaza al `content` vacío del payload. (D2) Imágenes → gpt-4o vision describe en 1-3 oraciones; vision consume URL pública directo, no hace falta bajar el blob. (D3) Todos los attachments soportados (AUDIO/IMAGE) se guardan en Twenty como `Attachment` asociado al Person, con `fullPath` apuntando al `data_url` de Chatwoot — `findOrCreatePersonByPhone` crea Person mínimo "Anónimo" si no existe. (D4) Welcome path hard-coded skipea cuando `hasMedia=true` para no perder info — un audio "hola" igual va al LLM, así Memory de Mastra captura el thread y el segundo turno tiene contexto. **Caps duros**: 5MB audio (~5min de opus), 10MB imagen (límite gpt-4o vision). **Filter rule 6 ajustada**: mensajes con `content` vacío PASAN si tienen attachment de tipo `audio` o `image`; `video`/`file`/`fallback` siguen rechazados con `empty_content`. **Caveat conocido**: el `fullPath` en Twenty apunta a Chatwoot Active Storage — quien haga click necesita estar logged en Chatwoot para verlo. Para v3 si querés ver "en frío", subimos a S3/bucket propio. **Cambios de código**: `src/lib/openai-multimodal.ts` nuevo (wrappers fail-soft de Whisper + vision); `src/lib/attachment-processor.ts` nuevo (orquesta descarga + extracción + arma `enrichedContent` con etiquetas `[audio del cliente]: ...` / `[imagen del cliente]: ...`); `src/lib/twenty.ts` extendido con `createAttachment` y `findOrCreatePersonByPhone`; `src/server/filter.ts` con rule 6 ajustada + helper `hasSupportedMediaAttachment`; `src/server/webhook.ts` con pre-procesamiento entre known-customer y welcome, `effectiveContent` reemplaza `message.content` en welcome/LLM, sync helper `syncProcessedAttachmentsToTwenty` post-LLM (fail-soft, jamás rompe el flow al cliente). **Dep nueva**: `openai@6.36.0` oficial — primera vez que usamos el SDK directo (Mastra sigue manejando el agente; openai SDK solo para Whisper + vision porque Whisper requiere multipart). **Fixtures nuevos**: `09-audio-attachment.json`, `10-image-with-caption.json`, `11-video-only.json`. **Tests**: `tests/lib/attachment-processor.test.ts` nuevo (13 tests: audio OK/too_large/download_failed/whisper_failed, imagen OK/too_large/vision_failed, OTHER no genera placeholder, mixto audio+imagen); 3 tests nuevos en filter.test.ts (audio-only pasa, image+caption pasa, video-only rechazado). Total suite: **153/153 verde**, typecheck limpio. **Sanity end-to-end real contra Twenty**: creé Person + 2 attachments (AUDIO + IMAGE) con `fullPath`, verifiqué linkage por `personId[eq]` filter, borré los 3 — HTTP 200 en cada paso. Pendiente Mariano: smoke con audios e imágenes reales desde WhatsApp. |
 | 2026-05-05 | **v2 Sprint 1 — Twenty CRM real**. Reemplazo del mock de `upsert-twenty-lead` por integración real contra Twenty self-hosted. Decisiones del sprint (basadas en exploración previa de la API): (D14) 3 entidades: Person + Company + Opportunity, identificación primaria por phone. (D15) Merge inteligente — campos llenos no se pisan; `lastContactAt` y `messageCount` siempre se actualizan; stage solo avanza nunca retrocede; LOST siempre alcanzable. (D16) Retry 3× con backoff 5s/10s/15s en 5xx y network; 4xx no-retry; si Twenty está caído, lead se loggea y la conversación con el cliente sigue normal. (D17) 6 custom fields creados via metadata API (no 7 como decía el diseño): se reusa `Opportunity.sourceChannel` nativo en lugar de crear `source` custom. **Schema cambios**: stage enum extendido a 8 valores (NEW/CONTACTED/SCREENING/MEETING/PROPOSAL/WON/CUSTOMER/LOST) — SCREENING y CUSTOMER quedan como aliases legacy de CONTACTED y WON. Arquetipo (CALIENTE/A_EXPLORAR/SIN_CLARIDAD/NO_LEAD) y exception (PEDIDO_HUMANO/CONSULTORIA/URGENCIA/RECLAMO/DEMO) en Opportunity; whatsappUrl/firstContactAt/lastContactAt/messageCount en Person. **Hallazgo crítico**: `accountOwnerId` espera el `workspaceMember.id` (no el `User.id` interno). Para Mariano: `44f3a96e-dba6-4bac-8826-166f58bee218`. Pasar el userId genera FK violation 500. **Cambios de código**: `src/lib/twenty.ts` nuevo (cliente HTTP con retry, lookups, mutations, helpers `parsePhoneE164`/`splitName`/`canAdvanceStage`/`aliasStage`). `src/mastra/tools/upsert-twenty-lead.ts` refactor completo — `phone` y `conversationId` ahora vienen via `RequestContext` (no del LLM, evita alucinaciones). `src/lib/nurturing-store.ts` agrega columna `phone` con migración idempotente; `recordInbound` la guarda; el worker LOST usa el phone real para upsertear (skip con warning si row legacy v1 sin phone). `src/server/webhook.ts` extrae `phone` y `name` del sender e inyecta en RequestContext. Backoffice prompt actualizado con nuevos inputs. Env vars: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_OWNER_USER_ID`. Tests: `tests/lib/twenty.test.ts` nuevo (17 tests de helpers); `tests/mastra/tools/upsert-twenty-lead.test.ts` reescrito con mocks de twenty.ts (16 tests cubriendo create flow, merge update, stage progression, notes, failures). Total suite: **137/137 verde**, typecheck limpio. Sanity end-to-end real contra Twenty: creé+actualicé+borré Person+Company+Opportunity+Note con todos los custom fields — 8 pasos HTTP 200. Pendiente Mariano: smoke con WhatsApp real desde su teléfono. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.

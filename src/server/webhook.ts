@@ -19,6 +19,18 @@ import {
   detectKnownCustomer,
   formatKnownCustomerContext,
 } from '../lib/known-customer.js';
+import {
+  parseAttachments,
+  processAttachments,
+  type ChatwootRawAttachment,
+  type ProcessedAttachment,
+} from '../lib/attachment-processor.js';
+import {
+  isTwentyConfigured,
+  findOrCreatePersonByPhone,
+  createAttachment,
+  type TwentyFileCategory,
+} from '../lib/twenty.js';
 
 export interface HandlerOutcome {
   status: 200 | 202 | 401 | 500;
@@ -63,6 +75,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     logger.error('filter passed but message extraction failed');
     return { status: 500, body: { error: 'message_extraction_failed' } };
   }
+  const rawAttachments = message.attachments;
 
   // Dedupe: Chatwoot may retransmit the same message_created event on retry.
   // We claim the message_id atomically before any side-effect (NURTURING
@@ -161,14 +174,56 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     }
   }
 
+  // === MULTIMODAL PRE-PROCESSING (Sprint 2) ===
+  // If the message carries audio/image attachments, transcribe / describe
+  // them and replace the message content with the enriched text. From here
+  // on the rest of the flow treats the conversation as plain text.
+  let effectiveContent = message.content;
+  let processedAttachments: ProcessedAttachment[] = [];
+  let hasMedia = false;
+  if (rawAttachments.length > 0) {
+    try {
+      const result = await processAttachments({
+        originalContent: message.content,
+        attachments: rawAttachments,
+      });
+      processedAttachments = result.processed;
+      effectiveContent = result.enrichedContent;
+      hasMedia = result.hasMedia;
+      logger.info(
+        {
+          conversationId: message.conversationId,
+          attachmentCount: rawAttachments.length,
+          processedCount: processedAttachments.length,
+          mediaCount: processedAttachments.filter(
+            (p) => p.category === 'AUDIO' || p.category === 'IMAGE',
+          ).length,
+          hasMedia,
+          enrichedLen: effectiveContent.length,
+        },
+        'webhook: attachments processed',
+      );
+    } catch (err) {
+      logger.error(
+        { err: (err as Error).message, conversationId: message.conversationId },
+        'webhook: attachment processing crashed — falling through with original content',
+      );
+    }
+  }
+
   // Hard-coded welcome path: short first message → fixed greeting, no LLM.
-  // Skipped when the client is a known customer (we go straight to the LLM
-  // with prior-context so the agent can greet them by their history).
-  if (knownContext === null && shouldSendHardcodedWelcome({ text: message.content, isFirstTurn })) {
+  // Skipped when the client is a known customer (LLM with prior-context) OR
+  // the message carried supported media (Sprint 2 D4: never lose audio/image
+  // info to the welcome path — always go to LLM so Memory captures it).
+  if (
+    knownContext === null &&
+    !hasMedia &&
+    shouldSendHardcodedWelcome({ text: effectiveContent, isFirstTurn })
+  ) {
     logger.info(
       {
         conversationId: message.conversationId,
-        words: message.content.trim().split(/\s+/).length,
+        words: effectiveContent.trim().split(/\s+/).length,
       },
       'webhook: short first turn → posting hard-coded welcome (no LLM)',
     );
@@ -205,7 +260,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
   try {
     const recepcionista = input.mastra.getAgent('recepcionista');
     const llmInput =
-      knownContext !== null ? `${knownContext}\n\n${message.content}` : message.content;
+      knownContext !== null ? `${knownContext}\n\n${effectiveContent}` : effectiveContent;
     // Inject conversationId/contactId/phone via RequestContext so tools
     // (chatwoot-handoff, upsert-twenty-lead) read them from there instead of
     // from the LLM input — which would let the model hallucinate IDs/phones in
@@ -246,6 +301,14 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
           'nurturing: recordOutbound (handoff ack) failed',
         );
       });
+      await syncProcessedAttachmentsToTwenty({
+        processed: processedAttachments,
+        phone: message.contactPhone,
+        contactName: message.contactName,
+        conversationId: message.conversationId,
+        baseUrl: env.CHATWOOT_BASE_URL,
+        accountId: env.CHATWOOT_ACCOUNT_ID,
+      });
       return { status: 202, body: { received: true } };
     }
 
@@ -281,7 +344,109 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     return { status: 500, body: { error: 'agent_or_post_failed' } };
   }
 
+  await syncProcessedAttachmentsToTwenty({
+    processed: processedAttachments,
+    phone: message.contactPhone,
+    contactName: message.contactName,
+    conversationId: message.conversationId,
+    baseUrl: env.CHATWOOT_BASE_URL,
+    accountId: env.CHATWOOT_ACCOUNT_ID,
+  });
   return { status: 202, body: { received: true } };
+}
+
+/**
+ * Per Sprint 2 D3: every supported attachment (audio/image) gets stored in
+ * Twenty against the contact's Person. We find-or-create the Person by phone
+ * and then call createAttachment per processed attachment. All errors are
+ * logged and swallowed — failing here must NEVER break the conversation
+ * flow with the customer.
+ */
+async function syncProcessedAttachmentsToTwenty(input: {
+  processed: ProcessedAttachment[];
+  phone: string;
+  contactName: string;
+  conversationId: number;
+  baseUrl: string;
+  accountId: number;
+}): Promise<void> {
+  if (input.processed.length === 0) return;
+  if (!input.phone) {
+    logger.warn(
+      { conversationId: input.conversationId, count: input.processed.length },
+      'twenty-attachment-sync: no phone in message — skipping (no Person to attach to)',
+    );
+    return;
+  }
+  if (!isTwentyConfigured()) {
+    logger.debug(
+      { conversationId: input.conversationId, count: input.processed.length },
+      'twenty-attachment-sync: Twenty not configured — skipping',
+    );
+    return;
+  }
+
+  const whatsappUrl = `${input.baseUrl}/app/accounts/${input.accountId}/conversations/${input.conversationId}`;
+  let personId: string;
+  try {
+    const fallbackFirstName = input.contactName.trim() || 'Anónimo';
+    const result = await findOrCreatePersonByPhone({
+      phone: input.phone,
+      fallbackFirstName,
+      whatsappUrl,
+    });
+    personId = result.person.id;
+    if (result.created) {
+      logger.info(
+        { phone: input.phone, personId, conversationId: input.conversationId },
+        'twenty-attachment-sync: created minimal Person for attachment storage',
+      );
+    }
+  } catch (err) {
+    logger.error(
+      { err: (err as Error).message, phone: input.phone, conversationId: input.conversationId },
+      'twenty-attachment-sync: findOrCreatePerson failed — skipping all attachments this turn',
+    );
+    return;
+  }
+
+  const dateLabel = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  for (const att of input.processed) {
+    if (att.category === 'OTHER') continue; // v2 only mirrors AUDIO + IMAGE
+    const fileCategory: TwentyFileCategory = att.category;
+    const name =
+      att.category === 'AUDIO'
+        ? `WhatsApp audio - ${dateLabel}`
+        : `WhatsApp image - ${dateLabel}`;
+    try {
+      const created = await createAttachment({
+        name,
+        fullPath: att.dataUrl,
+        fileCategory,
+        personId,
+      });
+      logger.info(
+        {
+          attachmentId: created.id,
+          personId,
+          chatwootAttachmentId: att.id,
+          category: att.category,
+          extracted: att.extractedText !== null,
+        },
+        'twenty-attachment-sync: attachment linked to Person',
+      );
+    } catch (err) {
+      logger.error(
+        {
+          err: (err as Error).message,
+          chatwootAttachmentId: att.id,
+          category: att.category,
+          personId,
+        },
+        'twenty-attachment-sync: createAttachment failed (continuing with the rest)',
+      );
+    }
+  }
 }
 
 interface ExtractedMessage {
@@ -293,6 +458,8 @@ interface ExtractedMessage {
   contactName: string;
   /** E.164 phone (e.g. '+5491132766709'). Empty string if missing. */
   contactPhone: string;
+  /** Raw Chatwoot attachments — empty array if none. Sprint 2. */
+  attachments: ChatwootRawAttachment[];
 }
 
 function extractMessage(body: unknown): ExtractedMessage | null {
@@ -316,7 +483,10 @@ function extractMessage(body: unknown): ExtractedMessage | null {
   if (!isObject(msg)) return null;
 
   const messageId = typeof msg['id'] === 'number' ? msg['id'] : null;
-  const content = typeof msg['content'] === 'string' ? msg['content'] : null;
+  // Media-only messages (audio/image) may carry null/undefined content from
+  // Chatwoot. Default to empty string so the message still extracts; the
+  // pre-processor downstream will fill it from attachments.
+  const content = typeof msg['content'] === 'string' ? msg['content'] : '';
 
   const sender = isObject(msg['sender']) ? msg['sender'] : null;
   const contactId = sender && typeof sender['id'] === 'number' ? sender['id'] : null;
@@ -326,15 +496,19 @@ function extractMessage(body: unknown): ExtractedMessage | null {
   const contactPhone =
     pickString(sender?.['phone_number']) ?? pickString(rootSender?.['phone_number']) ?? '';
 
-  if (
-    messageId === null ||
-    conversationId === null ||
-    contactId === null ||
-    content === null
-  ) {
+  if (messageId === null || conversationId === null || contactId === null) {
     return null;
   }
-  return { messageId, conversationId, contactId, content, contactName, contactPhone };
+  const attachments = parseAttachments(msg);
+  return {
+    messageId,
+    conversationId,
+    contactId,
+    content,
+    contactName,
+    contactPhone,
+    attachments,
+  };
 }
 
 function pickString(value: unknown): string | null {

@@ -402,6 +402,82 @@ export async function attachNoteToPerson(input: {
   });
 }
 
+// === MUTATIONS — Attachment ===
+
+/** Twenty's fileCategory enum. We emit AUDIO/IMAGE/OTHER from FAMA — others
+ *  exist for completeness but FAMA never sets them today. */
+export type TwentyFileCategory =
+  | 'ARCHIVE'
+  | 'AUDIO'
+  | 'IMAGE'
+  | 'PRESENTATION'
+  | 'SPREADSHEET'
+  | 'TEXT_DOCUMENT'
+  | 'VIDEO'
+  | 'OTHER';
+
+export interface CreateAttachmentInput {
+  /** Display name shown in Twenty UI (e.g. 'WhatsApp audio - 2026-05-06 14:23'). */
+  name: string;
+  /** URL the attachment lives at — Chatwoot's data_url for v2. */
+  fullPath: string;
+  fileCategory: TwentyFileCategory;
+  /** At least one target id must be set. We use personId for FAMA. */
+  personId?: string;
+  opportunityId?: string;
+  companyId?: string;
+}
+
+/**
+ * Creates an Attachment in Twenty and links it to the given target. Twenty
+ * stores the URL in `fullPath` — it does NOT host the file itself via REST.
+ * For Chatwoot self-hosted attachments the URL requires the viewer to be
+ * logged into Chatwoot. See CLAUDE.md "Multimodalidad" for the v3 plan to
+ * upload to a real storage if that becomes a problem.
+ */
+export async function createAttachment(
+  input: CreateAttachmentInput,
+): Promise<{ id: string }> {
+  const json = await twentyFetch<{ data: { createAttachment: { id: string } } }>({
+    method: 'POST',
+    path: '/attachments',
+    body: input,
+  });
+  return json.data.createAttachment;
+}
+
+// === HIGH-LEVEL ===
+
+/**
+ * Find a Person by phone, or create a minimal one if missing. Used by the
+ * attachment sync path so we always have a target for createAttachment(),
+ * even when the agent didn't call upsert-twenty-lead this turn.
+ *
+ * The minimal Person has firstName='Anónimo', stage NEW (via a sibling
+ * Opportunity created by the caller — this helper does NOT create the Opp,
+ * since Opp is the agent's job).
+ */
+export async function findOrCreatePersonByPhone(input: {
+  phone: string;
+  /** Used as Person.name on creation only — ignored if Person already exists. */
+  fallbackFirstName?: string;
+  /** Optional WhatsApp conversation URL — set on Person if creating. */
+  whatsappUrl?: string;
+}): Promise<{ person: PersonRecord; created: boolean }> {
+  const existing = await findPersonByPhone(input.phone);
+  if (existing) return { person: existing, created: false };
+  const created = await createPerson({
+    firstName: input.fallbackFirstName ?? 'Anónimo',
+    lastName: '',
+    phone: input.phone,
+    whatsappUrl: input.whatsappUrl,
+    firstContactAt: new Date().toISOString(),
+    lastContactAt: new Date().toISOString(),
+    messageCount: 1,
+  });
+  return { person: created, created: true };
+}
+
 // === HELPERS ===
 
 /**

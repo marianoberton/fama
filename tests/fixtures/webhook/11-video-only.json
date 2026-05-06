@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "description": "WhatsApp video-only message — content is empty AND the attachment is type 'video' (unsupported in Sprint 2). Filter rule 6 must REJECT this with empty_content because no supported media (audio/image). Sprint 2.",
+    "expected": { "pass": false, "status": 200, "reason": "empty_content" }
+  },
+  "account": { "id": 1, "name": "fomo" },
+  "content": "",
+  "content_type": "text",
+  "conversation": {
+    "id": 4252,
+    "inbox_id": 3,
+    "status": "pending",
+    "messages": [
+      {
+        "id": 92,
+        "content": "",
+        "message_type": 0,
+        "private": false,
+        "created_at": "2026-05-06T18:10:00.000Z",
+        "sender": {
+          "id": 93,
+          "type": "contact",
+          "name": "Carlos",
+          "phone_number": "+5491100001111"
+        },
+        "attachments": [
+          {
+            "id": 503,
+            "message_id": 92,
+            "file_type": "video",
+            "account_id": 1,
+            "extension": "mp4",
+            "data_url": "https://chat.fomo.com.ar/rails/active_storage/blobs/redirect/test-sig/video-503.mp4",
+            "thumb_url": null,
+            "file_size": 1048576
+          }
+        ]
+      }
+    ]
+  },
+  "created_at": "2026-05-06T18:10:00.000Z",
+  "id": 92,
+  "inbox": { "id": 3, "name": "Fomo Contacto" },
+  "message_type": "incoming",
+  "private": false,
+  "sender": {
+    "id": 93,
+    "name": "Carlos",
+    "phone_number": "+5491100001111"
+  },
+  "event": "message_created"
+}

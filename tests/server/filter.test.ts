@@ -140,6 +140,46 @@ describe('filterWebhook — 6 rules from CLAUDE.md', () => {
     });
     expect(result).toEqual({ pass: true });
   });
+
+  // Sprint 2: media-only messages (audio/image without text) must pass even
+  // though `content` is empty — the multimodal pre-processor enriches them
+  // downstream. Videos and other unsupported types are still rejected.
+  it('audio-only attachment + empty content → passes (rule 6 lets media through)', () => {
+    const { body } = loadFixture('09-audio-attachment.json');
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body,
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({ pass: true });
+  });
+
+  it('image with caption text → passes', () => {
+    const { body } = loadFixture('10-image-with-caption.json');
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body,
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({ pass: true });
+  });
+
+  it('video-only attachment + empty content → still rejected (unsupported)', () => {
+    const { body } = loadFixture('11-video-only.json');
+    const result = filterWebhook({
+      pathToken: EXPECTED_TOKEN,
+      body,
+      expectedAccountId: EXPECTED_ACCOUNT_ID,
+      expectedPathToken: EXPECTED_TOKEN,
+    });
+    expect(result).toEqual({
+      pass: false,
+      status: 200,
+      reason: 'empty_content',
+    });
+  });
 });
 
 // Rule 7 — once a human takes over (status=open) the bot must stop responding.

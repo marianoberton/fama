@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "description": "WhatsApp image with text caption — content has user-typed text AND attachments[0] has the image. Filter passes via Rule 6 (content non-empty), and the multimodal pre-processor enriches the LLM input with both. Sprint 2.",
+    "expected": { "pass": true }
+  },
+  "account": { "id": 1, "name": "fomo" },
+  "content": "Mirá esto que me mandaron",
+  "content_type": "text",
+  "conversation": {
+    "id": 4251,
+    "inbox_id": 3,
+    "status": "pending",
+    "messages": [
+      {
+        "id": 91,
+        "content": "Mirá esto que me mandaron",
+        "message_type": 0,
+        "private": false,
+        "created_at": "2026-05-06T18:05:00.000Z",
+        "sender": {
+          "id": 92,
+          "type": "contact",
+          "name": "Juan Pérez",
+          "phone_number": "+5491177778888"
+        },
+        "attachments": [
+          {
+            "id": 502,
+            "message_id": 91,
+            "file_type": "image",
+            "account_id": 1,
+            "extension": "jpg",
+            "data_url": "https://chat.fomo.com.ar/rails/active_storage/blobs/redirect/test-sig/image-502.jpg",
+            "thumb_url": "https://chat.fomo.com.ar/rails/active_storage/blobs/redirect/test-sig/image-502-thumb.jpg",
+            "file_size": 184320
+          }
+        ]
+      }
+    ]
+  },
+  "created_at": "2026-05-06T18:05:00.000Z",
+  "id": 91,
+  "inbox": { "id": 3, "name": "Fomo Contacto" },
+  "message_type": "incoming",
+  "private": false,
+  "sender": {
+    "id": 92,
+    "name": "Juan Pérez",
+    "phone_number": "+5491177778888"
+  },
+  "event": "message_created"
+}

@@ -17,6 +17,7 @@
     "@mastra/libsql": "^1.9.1",
     "@mastra/memory": "^1.17.4",
     "mastra": "latest",
+    "openai": "^6.36.0",
     "pino": "^9.5.0",
     "zod": "^4.0.0"
   },
