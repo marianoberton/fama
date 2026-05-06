@@ -165,11 +165,51 @@ El backoffice es responsable de armar este string con el contexto recolectado.
 
 ## Tools del proyecto
 
-| Tool | Estado v1 | Quién la usa |
+| Tool | Estado | Quién la usa |
 |---|---|---|
-| `knowledge-search` | Real | Recepcionista + Backoffice |
-| `chatwoot-handoff` | Real | Solo Backoffice |
-| `upsert-twenty-lead` | Mock con contrato real (incluye `stage` enum NEW/CONTACTED/MEETING/PROPOSAL/WON/LOST) | Solo Backoffice + worker NURTURING |
+| `knowledge-search` | Real (v1) | Recepcionista + Backoffice |
+| `chatwoot-handoff` | Real (v1) | Solo Backoffice |
+| `upsert-twenty-lead` | Real (v2 Sprint 1) — Twenty self-hosted, ver sección "Twenty CRM" | Solo Backoffice + worker NURTURING |
+
+## Twenty CRM (v2 — Sprint 1)
+
+Reemplazo del mock de `upsert-twenty-lead` por integración real contra Twenty self-hosted en `https://crm.fomo.com.ar`.
+
+**Endpoints**:
+- Data API: `https://crm.fomo.com.ar/rest` (Person, Company, Opportunity, Note, NoteTarget). Auth: `Authorization: Bearer <TWENTY_API_KEY>`.
+- Metadata API: `https://crm.fomo.com.ar/rest/metadata` (objects, fields). Misma auth.
+
+**Schema en Twenty (creado en este sprint vía metadata API)**:
+
+- Stage enum extendido a 8 valores: `NEW | CONTACTED | SCREENING | MEETING | PROPOSAL | WON | CUSTOMER | LOST`. SCREENING y CUSTOMER quedan como aliases legacy (mapean a CONTACTED y WON respectivamente en `src/lib/twenty.ts → aliasStage`).
+- 6 custom fields creados:
+  - `Person.whatsappUrl` (TEXT) — link a la conversación de Chatwoot.
+  - `Person.firstContactAt` (DATE_TIME) — primer mensaje del cliente.
+  - `Person.lastContactAt` (DATE_TIME) — último mensaje del cliente. Se actualiza siempre.
+  - `Person.messageCount` (NUMBER) — counter incremental. Se actualiza siempre.
+  - `Opportunity.arquetipo` (SELECT, nullable) — `CALIENTE | A_EXPLORAR | SIN_CLARIDAD | NO_LEAD`. Set por el backoffice.
+  - `Opportunity.exception` (SELECT, nullable) — `PEDIDO_HUMANO | CONSULTORIA | URGENCIA | RECLAMO | DEMO`. Set por el backoffice cuando aplica una excepción rígida.
+- `Opportunity.sourceChannel` ya existía nativo (`WHATSAPP | WEBSITE | INSTAGRAM | LINKEDIN | REFERRAL | EMAIL | ADS | OTHER`) — lo reusamos en lugar de crear un custom `source`.
+
+**Owner**: `accountOwnerId` se aplica solo a Company (Person/Opportunity no tienen field nativo de owner). El env var `TWENTY_OWNER_USER_ID` guarda el `workspaceMember.id` (NO el `User.id` interno — pasarlo causa FK error 500). El valor real para Mariano es `44f3a96e-dba6-4bac-8826-166f58bee218`.
+
+**Lógica de upsert** (en `src/mastra/tools/upsert-twenty-lead.ts → runUpsertTwentyLead`):
+
+1. `findPersonByPhone(phone)` (lookup por `phones.primaryPhoneNumber[eq]:<national-number>`).
+2. Si hay company: `findCompanyByName(name)` o `createCompany` con `accountOwnerId`.
+3. Si Person no existe: `createPerson` con todos los datos + `firstContactAt=now`, `lastContactAt=now`, `messageCount=1`.
+4. Si Person existe: **merge inteligente** — solo seteamos campos que están vacíos en Twenty (`name`, `email`, `companyId`, `whatsappUrl`). `lastContactAt` y `messageCount` se actualizan SIEMPRE.
+5. `findOpportunityByPersonId(personId)`. Si no existe: `createOpportunity`. Si existe: `updateOpportunity` solo si `canAdvanceStage(current, new)` — el stage **solo avanza, nunca retrocede** (LOST es siempre alcanzable; WON solo permite WON o LOST).
+6. Si `notes` viene en el input: `createNote` + `attachNoteToPerson` (Twenty necesita 2 calls — Note + NoteTarget separados). Falla en Note es no-fatal: el lead queda registrado igual.
+
+**Manejo de errores**:
+- Cliente HTTP en `src/lib/twenty.ts`: retry 3 intentos con backoff 5s/10s/15s para 5xx y network errors. **4xx no retry** — son bugs nuestros.
+- Si todos los retries fallan, la tool retorna `{ success: false, error }`. La conversación con el cliente sigue normal — Twenty no bloquea.
+- Si `TWENTY_API_KEY` está vacío (dev/Studio), la tool retorna `{ success: true, skipped: true }` y loguea warning. Booteo no falla.
+
+**Inputs del LLM** (post-v2): `{ name?, email?, company?, stage, source, notes?, arquetipo?, exception? }`. **`phone` y `conversationId` NO los pasa el LLM** — los inyecta el webhook handler vía `RequestContext` desde `sender.phone_number` del payload de Chatwoot. Esto evita alucinaciones de phone en Studio o prompts parciales.
+
+**Para el worker NURTURING (LOST)**: el `phone` ahora se guarda en la tabla `nurturing_conversations` (columna agregada en migración idempotente). Cuando el worker marca un lead como LOST tras 24h sin respuesta, llama `runUpsertTwentyLead({ stage: 'LOST', ... })` con el phone real del row. Si el row es de v1 sin phone, skipea el upsert con warning.
 
 > Nota: la "delegación al backoffice" NO es una tool — usa el patrón nativo `agents: { backoffice }` + `Memory` de Mastra. Ver bitácora 2026-05-02.
 
@@ -195,7 +235,7 @@ Si encontrás contenido en `fomo-core` que mencione "Sofía", "Marcos", "Valenti
 - **gpt-4o-mini** para el recepcionista y **gpt-4o** para el backoffice en v1.
 - **Sin retry automático** en handoff. Falla → log ERROR → reintentos vienen del flujo natural del agente.
 - **Lock interno de 60s** para idempotencia (no chequeo contra Chatwoot).
-- **Mock de Twenty** en v1 (lead registration), integración real en v2.
+- **Twenty real** desde v2 Sprint 1 (2026-05-05). Reemplaza el mock de v1. Ver sección "Twenty CRM (v2 — Sprint 1)" arriba.
 - **Sin Slack ni Telegram** en v1. La tool `notify-mariano` quedó eliminada — si en v2 querés notificación a Mariano se reimplementa contra el canal definitivo (no asumimos Telegram).
 - **NURTURING (worker de seguimiento) entra en v1.** Reintentos a ~4h y ~22h sin respuesta del cliente, sólo dentro de la ventana de 24h de Meta y en horario laboral AR (9-19hs UTC-3). Cancela si la conversación está escalada (`open`), si el lead es `WON`/`LOST`, o tras 2 reintentos. Spec completo en `fama-design-v1.md §7`.
 - **Primer turno hard-coded**: si el primer mensaje del cliente tiene <30 palabras y todavía no le respondimos nada en esa conversación, el handler postea un texto fijo de bienvenida sin invocar al LLM. Si tiene ≥30 palabras o ya hubo respuesta previa del bot, sigue por el flujo normal (recepcionista → backoffice). Spec en `fama-design-v1.md §4`.
@@ -210,7 +250,7 @@ No construyas estas cosas, son v2 explícitamente:
 - Templates de Meta WhatsApp Business para reintentos del NURTURING fuera de la ventana de 24h.
 - Inferencia de timezone del cliente desde su primer mensaje (para horarios de envío apropiados — en v1 todo se asume horario AR).
 - Debouncing / batching de mensajes seguidos.
-- Conexión real a Twenty CRM (sigue como mock).
+- ~~Conexión real a Twenty CRM (sigue como mock).~~ **Hecho en v2 Sprint 1 (2026-05-05).**
 - Notificación a Mariano por canal externo (Telegram / Slack / mail) — la tool `notify-mariano` quedó eliminada en v1.
 - Métricas en `fomo-platform`.
 - Pre-flight validation de tools.
@@ -320,6 +360,14 @@ Lo que el código no puede resolver por sí solo. Cuanto antes se haga, antes se
 - [ ] Deploy al VPS (red `fomo-net` ya existe ahí). `docker compose up -d`.
 - [ ] Mandar 5-10 webhooks simulados con `curl` desde el VPS para confirmar que la red pública resuelve y los logs están limpios.
 
+### Validación pre-cutover (v2 Sprint 1 — Twenty)
+
+- [ ] Smoke real con WhatsApp: dejar el contenedor corriendo, mandarte 1-2 mensajes desde tu WhatsApp personal y verificar en Twenty UI:
+  - Person creado con `phones.primaryPhoneNumber`, `whatsappUrl` clickeable a Chatwoot, `firstContactAt`, `lastContactAt`, `messageCount`.
+  - Opportunity creada con `stage`, `sourceChannel=WHATSAPP`, owner = vos (vía Company.accountOwnerId si pasaste empresa).
+  - Si pediste hablar con humano: stage=MEETING, `exception=PEDIDO_HUMANO`, Note adjunta al Person con el resumen.
+- [ ] Si el smoke aparece OK pero querés que la API key se rote (recomendado, ya quedó pegada en el chat de Claude Code), generá una nueva en `https://crm.fomo.com.ar/settings/api-webhooks`, pegala en `.env`, y reiniciá el contenedor.
+
 ### Cutover
 
 - [ ] En Chatwoot via Rails console, repuntar el agent bot al endpoint nuevo:
@@ -358,5 +406,6 @@ Tiempo de rollback ~30 segundos. fomo-core sigue funcional hasta que se jubile e
 | 2026-05-03 | Dedupe de mensajes entrantes implementado en `src/lib/dedup-store.ts`. Tabla `processed_messages` en `mastra.db`. TTL 5 min, cleanup setInterval cada 30 min (skip en test). Idempotencia atómica vía INSERT OR IGNORE en `tryMarkProcessed`. Hook en webhook handler después del filtrado de 6 reglas y antes del welcome/agente. Razón: Chatwoot puede retransmitir eventos por timeout, sin dedupe FAMA mandaría 2 respuestas al mismo mensaje. Decisión D3 del plan de cutover. |
 | 2026-05-03 | Knowledge content: `pricing.md` y `faqs.md` completados con datos reales. Pricing refleja los 4 planes del sitio (Starter USD 299 / Equipo USD 699 / Completo USD 1.099 / Enterprise a convenir) + setup únicos + factores que justifican el "desde" (integraciones + empleado puntual). FAQs cubre las 9 categorías originales del CLAUDE.md + 9 más útiles tomadas del sitio web, con tono ajustado para FAMA (sin slogans ni promesas de SLA). Datos sensibles redactado cauto sin sobre-prometer; escalado a humano confirma derivación; capacitaciones desde USD 1.000; casos de éxito redactado vago para no comprometer volumen. `sales.md` queda pendiente para próxima sesión. |
 | 2026-05-03 | `sales.md` completado, paso 4 cerrado completo. Estructura: 8 secciones h2 (Por qué FOMO / ChatGPT / costo de no automatizar / discovery / 3 objeciones promovidas a h2 / proceso). Contenido refinado en sesión: framing "herramienta vs sistema" para diferenciación con ChatGPT, redefinición de "caro" basada en costo de empleados poco productivos, técnica de discovery "magia para resolver un problema". Sección "Cuándo FOMO no es la mejor opción" eliminada (contradice estrategia de captura amplia documentada). ~700 palabras. Las 3 objeciones quedaron como h2 (no h3) siguiendo el aprendizaje de `pricing.md` para que el parser de knowledge las indexe individualmente. |
+| 2026-05-05 | **v2 Sprint 1 — Twenty CRM real**. Reemplazo del mock de `upsert-twenty-lead` por integración real contra Twenty self-hosted. Decisiones del sprint (basadas en exploración previa de la API): (D14) 3 entidades: Person + Company + Opportunity, identificación primaria por phone. (D15) Merge inteligente — campos llenos no se pisan; `lastContactAt` y `messageCount` siempre se actualizan; stage solo avanza nunca retrocede; LOST siempre alcanzable. (D16) Retry 3× con backoff 5s/10s/15s en 5xx y network; 4xx no-retry; si Twenty está caído, lead se loggea y la conversación con el cliente sigue normal. (D17) 6 custom fields creados via metadata API (no 7 como decía el diseño): se reusa `Opportunity.sourceChannel` nativo en lugar de crear `source` custom. **Schema cambios**: stage enum extendido a 8 valores (NEW/CONTACTED/SCREENING/MEETING/PROPOSAL/WON/CUSTOMER/LOST) — SCREENING y CUSTOMER quedan como aliases legacy de CONTACTED y WON. Arquetipo (CALIENTE/A_EXPLORAR/SIN_CLARIDAD/NO_LEAD) y exception (PEDIDO_HUMANO/CONSULTORIA/URGENCIA/RECLAMO/DEMO) en Opportunity; whatsappUrl/firstContactAt/lastContactAt/messageCount en Person. **Hallazgo crítico**: `accountOwnerId` espera el `workspaceMember.id` (no el `User.id` interno). Para Mariano: `44f3a96e-dba6-4bac-8826-166f58bee218`. Pasar el userId genera FK violation 500. **Cambios de código**: `src/lib/twenty.ts` nuevo (cliente HTTP con retry, lookups, mutations, helpers `parsePhoneE164`/`splitName`/`canAdvanceStage`/`aliasStage`). `src/mastra/tools/upsert-twenty-lead.ts` refactor completo — `phone` y `conversationId` ahora vienen via `RequestContext` (no del LLM, evita alucinaciones). `src/lib/nurturing-store.ts` agrega columna `phone` con migración idempotente; `recordInbound` la guarda; el worker LOST usa el phone real para upsertear (skip con warning si row legacy v1 sin phone). `src/server/webhook.ts` extrae `phone` y `name` del sender e inyecta en RequestContext. Backoffice prompt actualizado con nuevos inputs. Env vars: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_OWNER_USER_ID`. Tests: `tests/lib/twenty.test.ts` nuevo (17 tests de helpers); `tests/mastra/tools/upsert-twenty-lead.test.ts` reescrito con mocks de twenty.ts (16 tests cubriendo create flow, merge update, stage progression, notes, failures). Total suite: **137/137 verde**, typecheck limpio. Sanity end-to-end real contra Twenty: creé+actualicé+borré Person+Company+Opportunity+Note con todos los custom fields — 8 pasos HTTP 200. Pendiente Mariano: smoke con WhatsApp real desde su teléfono. |
 
 A medida que tomemos decisiones nuevas o cambien las existentes, anotar acá con fecha breve.

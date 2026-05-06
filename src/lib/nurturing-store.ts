@@ -21,6 +21,9 @@ export type NurturingStatus = 'pending' | 'escalated' | 'lost';
 export interface NurturingRow {
   conversationId: number;
   contactId: number;
+  /** E.164 phone of the contact, captured on the first inbound. May be null
+   *  for legacy rows (created before v2 added the column). */
+  phone: string | null;
   lastInboundAt: number; // epoch ms
   lastOutboundAt: number | null; // epoch ms or null
   retryCount: number; // 0, 1 or 2
@@ -31,12 +34,17 @@ const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS nurturing_conversations (
   conversation_id   INTEGER PRIMARY KEY,
   contact_id        INTEGER NOT NULL,
+  phone             TEXT,
   last_inbound_at   INTEGER NOT NULL,
   last_outbound_at  INTEGER,
   retry_count       INTEGER NOT NULL DEFAULT 0,
   status            TEXT NOT NULL DEFAULT 'pending'
 );
 `;
+
+// Idempotent migration for existing DBs created before v2: ADD COLUMN if not
+// present. SQLite ignores ALTER TABLE ADD COLUMN errors via try/catch wrapper.
+const MIGRATION_SQL = `ALTER TABLE nurturing_conversations ADD COLUMN phone TEXT;`;
 
 let cachedClient: Client | undefined;
 
@@ -47,18 +55,33 @@ let cachedClient: Client | undefined;
  * cached, it is reused regardless of env until `resetNurturingStoreForTests`
  * clears it.
  */
+async function ensureSchema(client: Client): Promise<void> {
+  await client.execute(SCHEMA_SQL);
+  // Best-effort migration: existing DBs from v1 lack the `phone` column.
+  // ALTER TABLE ADD COLUMN errors out if the column already exists; swallow
+  // that and any other harmless duplicate-column errors.
+  try {
+    await client.execute(MIGRATION_SQL);
+  } catch (err) {
+    const msg = (err as Error).message ?? '';
+    if (!/duplicate column|already exists/i.test(msg)) {
+      logger.warn({ err: msg }, 'nurturing-store: phone column migration unexpected error');
+    }
+  }
+}
+
 export async function getNurturingStoreClient(): Promise<Client> {
   if (cachedClient) return cachedClient;
   const url = loadEnv().MASTRA_DB_URL;
   const client = createClient({ url });
-  await client.execute(SCHEMA_SQL);
+  await ensureSchema(client);
   cachedClient = client;
   return client;
 }
 
 /** Test-only: install a custom client (e.g. :memory:) and ensure schema exists. */
 export async function setNurturingStoreClientForTests(client: Client): Promise<void> {
-  await client.execute(SCHEMA_SQL);
+  await ensureSchema(client);
   cachedClient = client;
 }
 
@@ -71,6 +94,7 @@ function rowFromDb(r: Record<string, unknown>): NurturingRow {
   return {
     conversationId: Number(r['conversation_id']),
     contactId: Number(r['contact_id']),
+    phone: r['phone'] === null || r['phone'] === undefined ? null : String(r['phone']),
     lastInboundAt: Number(r['last_inbound_at']),
     lastOutboundAt: r['last_outbound_at'] === null ? null : Number(r['last_outbound_at']),
     retryCount: Number(r['retry_count']),
@@ -85,22 +109,28 @@ function rowFromDb(r: Record<string, unknown>): NurturingRow {
 export async function recordInbound(input: {
   conversationId: number;
   contactId: number;
+  /** E.164 phone — captured the first time we see this contact. Optional so
+   *  callers without a phone (legacy code paths) still work. */
+  phone?: string | null;
   now?: number;
 }): Promise<void> {
   const now = input.now ?? Date.now();
   const client = await getNurturingStoreClient();
+  // COALESCE on UPDATE so we never overwrite a previously-captured phone with
+  // null — first non-null write wins.
   await client.execute({
     sql: `
       INSERT INTO nurturing_conversations
-        (conversation_id, contact_id, last_inbound_at, last_outbound_at, retry_count, status)
-      VALUES (?, ?, ?, NULL, 0, 'pending')
+        (conversation_id, contact_id, phone, last_inbound_at, last_outbound_at, retry_count, status)
+      VALUES (?, ?, ?, ?, NULL, 0, 'pending')
       ON CONFLICT(conversation_id) DO UPDATE SET
         contact_id = excluded.contact_id,
+        phone = COALESCE(nurturing_conversations.phone, excluded.phone),
         last_inbound_at = excluded.last_inbound_at,
         retry_count = 0,
         status = 'pending';
     `,
-    args: [input.conversationId, input.contactId, now],
+    args: [input.conversationId, input.contactId, input.phone ?? null, now],
   });
 }
 

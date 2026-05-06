@@ -21,6 +21,15 @@ const envSchema = z.object({
   // volume so memory survives container restarts.
   MASTRA_DB_URL: z.string().default('file:./mastra.db'),
 
+  // Twenty CRM (v2). All optional at boot — when TWENTY_API_KEY is empty the
+  // upsert tool short-circuits and logs a warning so dev/Studio works without
+  // a CRM connection. Validated at call-site (src/lib/twenty.ts → requireTwentyConfig).
+  // TWENTY_OWNER_USER_ID is the workspaceMember.id (not the User.id) — this
+  // is what Twenty's accountOwnerId field expects on Company records.
+  TWENTY_API_URL: z.string().default(''),
+  TWENTY_API_KEY: z.string().default(''),
+  TWENTY_OWNER_USER_ID: z.string().default(''),
+
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])

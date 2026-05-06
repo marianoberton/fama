@@ -104,6 +104,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
   await recordInbound({
     conversationId: message.conversationId,
     contactId: message.contactId,
+    phone: message.contactPhone || null,
   }).catch((err) => {
     logger.error(
       { err: (err as Error).message, conversationId: message.conversationId },
@@ -205,12 +206,15 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     const recepcionista = input.mastra.getAgent('recepcionista');
     const llmInput =
       knownContext !== null ? `${knownContext}\n\n${message.content}` : message.content;
-    // Inject conversationId/contactId via RequestContext so the chatwoot-handoff
-    // tool reads them from there instead of from the LLM input (which would let
-    // the model hallucinate IDs in Studio or partial-prompt scenarios).
+    // Inject conversationId/contactId/phone via RequestContext so tools
+    // (chatwoot-handoff, upsert-twenty-lead) read them from there instead of
+    // from the LLM input — which would let the model hallucinate IDs/phones in
+    // Studio or partial-prompt scenarios.
     const requestContext = new RequestContext();
     requestContext.set('conversationId', message.conversationId);
     requestContext.set('contactId', message.contactId);
+    if (message.contactPhone) requestContext.set('phone', message.contactPhone);
+    if (message.contactName) requestContext.set('contactName', message.contactName);
     const reply = await recepcionista.generate(llmInput, {
       memory: {
         thread: `chatwoot-${message.conversationId}`,
@@ -285,6 +289,10 @@ interface ExtractedMessage {
   conversationId: number;
   contactId: number;
   content: string;
+  /** WhatsApp profile name from sender. Empty string if missing. */
+  contactName: string;
+  /** E.164 phone (e.g. '+5491132766709'). Empty string if missing. */
+  contactPhone: string;
 }
 
 function extractMessage(body: unknown): ExtractedMessage | null {
@@ -312,6 +320,11 @@ function extractMessage(body: unknown): ExtractedMessage | null {
 
   const sender = isObject(msg['sender']) ? msg['sender'] : null;
   const contactId = sender && typeof sender['id'] === 'number' ? sender['id'] : null;
+  // Phone + name from sender (with fallback to root sender for older shapes).
+  const rootSender = isObject(body['sender']) ? body['sender'] : null;
+  const contactName = pickString(sender?.['name']) ?? pickString(rootSender?.['name']) ?? '';
+  const contactPhone =
+    pickString(sender?.['phone_number']) ?? pickString(rootSender?.['phone_number']) ?? '';
 
   if (
     messageId === null ||
@@ -321,7 +334,11 @@ function extractMessage(body: unknown): ExtractedMessage | null {
   ) {
     return null;
   }
-  return { messageId, conversationId, contactId, content };
+  return { messageId, conversationId, contactId, content, contactName, contactPhone };
+}
+
+function pickString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

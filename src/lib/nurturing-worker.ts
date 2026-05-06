@@ -35,7 +35,7 @@ import {
   ChatwootNotConfiguredError,
 } from './chatwoot.js';
 import { loadEnv } from '../config/env.js';
-import { upsertTwentyLead } from '../mastra/tools/upsert-twenty-lead.js';
+import { runUpsertTwentyLead } from '../mastra/tools/upsert-twenty-lead.js';
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const TWENTY_TWO_HOURS_MS = 22 * 60 * 60 * 1000;
@@ -106,23 +106,29 @@ async function processOne(row: NurturingRow, now: number): Promise<void> {
   // v1 trade-off (see fama-design-v1.md §11 — no Meta templates in v1).
   if (idleMs >= TWENTY_FOUR_HOURS_MS) {
     await markLost(row.conversationId);
-    try {
-      const execute = upsertTwentyLead.execute as (i: unknown) => Promise<unknown>;
-      await execute({
-        // We don't store contact phone in the store, so log a placeholder.
-        // The CRM-real integration in v2 will look it up by conversation_id.
-        phone: `chatwoot:${row.conversationId}`,
-        stage: 'LOST',
-        source: 'whatsapp',
-        notes:
-          row.retryCount >= 2
-            ? 'NURTURING worker: no respondió a 2 follow-ups dentro de la ventana 24h.'
-            : `NURTURING worker: ventana 24h Meta cerrada con ${row.retryCount} follow-up(s) enviado(s) (cliente escribió fuera de horario laboral AR).`,
-      });
-    } catch (err) {
-      logger.error(
-        { conversationId: row.conversationId, err: (err as Error).message },
-        'nurturing: upsert-twenty-lead LOST failed (mock should never throw)',
+    if (row.phone) {
+      try {
+        await runUpsertTwentyLead(
+          {
+            stage: 'LOST',
+            source: 'whatsapp',
+            notes:
+              row.retryCount >= 2
+                ? 'NURTURING worker: no respondió a 2 follow-ups dentro de la ventana 24h.'
+                : `NURTURING worker: ventana 24h Meta cerrada con ${row.retryCount} follow-up(s) enviado(s) (cliente escribió fuera de horario laboral AR).`,
+          },
+          { phone: row.phone, conversationId: row.conversationId },
+        );
+      } catch (err) {
+        logger.error(
+          { conversationId: row.conversationId, err: (err as Error).message },
+          'nurturing: upsert-twenty-lead LOST failed',
+        );
+      }
+    } else {
+      logger.warn(
+        { conversationId: row.conversationId },
+        'nurturing: marked LOST locally but skipped Twenty upsert (no phone in store — legacy row from v1)',
       );
     }
     logger.info(
