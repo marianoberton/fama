@@ -30,6 +30,20 @@ const envSchema = z.object({
   TWENTY_API_KEY: z.string().default(''),
   TWENTY_OWNER_USER_ID: z.string().default(''),
 
+  // Google Calendar (v2 Sprint 3). All optional at boot — when
+  // GOOGLE_CALENDAR_CREDENTIALS_JSON is empty the agendador tool short-circuits
+  // and falls through to chatwoot-handoff so dev/Studio works without GCP.
+  // GOOGLE_CALENDAR_CREDENTIALS_JSON: full service-account JSON key as a
+  //   single-line string. Generated in GCP Console → IAM → Service Accounts.
+  // CALENDAR_IDS_TO_CHECK: comma-separated list of calendar emails whose busy
+  //   times must be intersected (a slot is free only if free in ALL of them).
+  // CALENDAR_PRIMARY: the calendar where new events are CREATED. Usually the
+  //   first one in CALENDAR_IDS_TO_CHECK. Other calendars are read-only for
+  //   busy-time checks and are added as `attendees` on the created event.
+  GOOGLE_CALENDAR_CREDENTIALS_JSON: z.string().default(''),
+  CALENDAR_IDS_TO_CHECK: z.string().default(''),
+  CALENDAR_PRIMARY: z.string().default(''),
+
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])

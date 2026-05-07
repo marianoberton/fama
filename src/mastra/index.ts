@@ -2,6 +2,7 @@ import { Mastra } from '@mastra/core';
 import { registerApiRoute } from '@mastra/core/server';
 import { recepcionista } from './agents/recepcionista.js';
 import { backoffice } from './agents/backoffice.js';
+import { agendador } from './agents/agendador.js';
 import { handleChatwootWebhook } from '../server/webhook.js';
 import { loadEnv } from '../config/env.js';
 import { startNurturingWorker } from '../lib/nurturing-worker.js';
@@ -41,7 +42,7 @@ if (env.NODE_ENV !== 'test') {
 }
 
 export const mastra = new Mastra({
-  agents: { recepcionista, backoffice },
+  agents: { recepcionista, backoffice, agendador },
   server: {
     apiRoutes: [
       // Note: Mastra ya expone GET /health built-in que devuelve {success:true}.
