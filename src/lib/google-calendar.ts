@@ -104,6 +104,12 @@ function getClient(): calendar_v3.Calendar {
     email: config.credentials.client_email,
     key: config.credentials.private_key,
     scopes: ['https://www.googleapis.com/auth/calendar'],
+    // Domain-Wide Delegation: el SA actúa como CALENDAR_PRIMARY (un user del
+    // Workspace) en lugar de actuar "como sí mismo". Esto evita depender del
+    // sharing UI de Calendar (que está restringido por la External sharing
+    // policy del Workspace y no permite "Make changes to events" en la
+    // mayoría de los Workspaces nuevos). Ver CLAUDE.md "Calendar Agent → Auth".
+    subject: config.primaryCalendarId,
   });
   cachedClient = google.calendar({ version: 'v3', auth });
   return cachedClient;
