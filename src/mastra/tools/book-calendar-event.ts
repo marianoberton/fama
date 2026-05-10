@@ -29,7 +29,14 @@ import {
   GoogleCalendarApiError,
   requireGoogleCalendarConfig,
 } from '../../lib/google-calendar.js';
-import { isSlotFree, slotToIso, formatSlotForHumans, BUFFER_MIN, SLOT_DURATION_MIN } from '../../lib/availability.js';
+import {
+  isSlotFree,
+  isSlotOnCandidateGrid,
+  slotToIso,
+  formatSlotForHumans,
+  BUFFER_MIN,
+  SLOT_DURATION_MIN,
+} from '../../lib/availability.js';
 import {
   isTwentyConfigured,
   findOrCreatePersonByPhone,
@@ -104,7 +111,13 @@ export const bookCalendarEventOutput = z.object({
   error: z.string().optional(),
   /** Razón cuando success=false. */
   reason: z
-    .enum(['calendar_not_configured', 'slot_taken', 'calendar_api_error', 'missing_request_context'])
+    .enum([
+      'calendar_not_configured',
+      'slot_taken',
+      'calendar_api_error',
+      'missing_request_context',
+      'invalid_slot',
+    ])
     .optional(),
 });
 
@@ -132,6 +145,27 @@ export async function runBookCalendarEvent(
 
   const slotEndMs = input.slotStartMs + SLOT_DURATION_MIN * 60 * 1000;
   const slot = { startMs: input.slotStartMs, endMs: slotEndMs };
+
+  // === 0. Validate slot is on the candidate grid (defense vs LLM halluc.) ===
+  // The agendador prompt instructs the LLM to pass slotStartMs verbatim from
+  // list-calendar-slots, but gpt-4o-mini occasionally invents an epoch. If the
+  // slot doesn't fall on the AR-business-hours / weekday / half-hour grid that
+  // generateCandidateSlots would emit, refuse — the agendador must re-list and
+  // re-pick a real slot. Without this, an alucinated epoch like 07:20 on a
+  // weekend slips through (busy=empty since no one books at those hours).
+  if (
+    !isSlotOnCandidateGrid({ slotStartMs: input.slotStartMs, nowMs: Date.now() })
+  ) {
+    logger.warn(
+      {
+        phone: ctx.phone,
+        slotStartMs: input.slotStartMs,
+        slotIso: new Date(input.slotStartMs).toISOString(),
+      },
+      'book-calendar-event: slotStartMs not on the candidate grid (likely LLM hallucination) — refusing',
+    );
+    return { success: false, reason: 'invalid_slot' };
+  }
 
   // === 1. Re-verify slot is still free (race-condition guard) ===
   try {

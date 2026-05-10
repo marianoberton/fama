@@ -69,6 +69,7 @@ NO menciones el meetLink en el texto — Calendar ya se lo manda por mail al cli
 
 ### Si success=false:
 - **reason='slot_taken'**: el slot se ocupó entre que lo ofreciste y el cliente eligió. Respondé "Justo se ocupó ese slot, dejame buscar de nuevo" y volvé al paso 2 con count=2.
+- **reason='invalid_slot'**: pasaste un slotStartMs que NO viene de list-calendar-slots (probablemente un timestamp inventado). NUNCA inventes el slotStartMs — siempre tiene que ser exactamente el campo numérico que devolvió list-calendar-slots. Volvé al paso 2 con count=2 y reintenta con el valor correcto.
 - **reason='calendar_not_configured'** | **'calendar_api_error'**: "Tuve un problema técnico, te paso con el equipo para coordinar manualmente" + chatwoot-handoff.
 
 # Reglas duras

@@ -130,6 +130,47 @@ export function isSlotFree(input: {
   return true;
 }
 
+/**
+ * Returns true if `slotStartMs` is one of the timestamps that
+ * `generateCandidateSlots()` would emit for the search window starting at
+ * `nowMs`. Used by `book-calendar-event` to defend against the LLM
+ * hallucinating an arbitrary epoch ms that isn't on the offered grid.
+ *
+ * Constraints checked:
+ *   - Slot is on the half-hour grid (minute is 00 or 30).
+ *   - Slot starts >= 9:00 AR and ends <= 19:00 AR (business hours).
+ *   - Day is Monday–Friday (no weekends).
+ *   - Slot is at-or-after `startOfNextBusinessDay(nowMs)` (no same-day, no past).
+ *   - When `windowDays` is provided, the slot is within that window.
+ *     book-calendar-event leaves it undefined so it can accept slots beyond 7
+ *     days if a future iteration of list-calendar-slots returns them; tests
+ *     pass it to assert window bounds.
+ */
+export function isSlotOnCandidateGrid(input: {
+  slotStartMs: number;
+  nowMs: number;
+  windowDays?: number;
+}): boolean {
+  const earliest = startOfNextBusinessDay(input.nowMs);
+  if (input.slotStartMs < earliest) return false;
+  if (input.windowDays !== undefined) {
+    const latest =
+      earliest + input.windowDays * 24 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000;
+    if (input.slotStartMs >= latest) return false;
+  }
+
+  const parts = arPartsFromEpoch(input.slotStartMs);
+  if (parts.weekday === 0 || parts.weekday === 6) return false;
+  if (parts.hour < BUSINESS_START_HOUR_AR) return false;
+  // Last legal slot starts at (BUSINESS_END_HOUR_AR - 0.5h). After that the
+  // 30-min slot would end past 19:00.
+  const slotStartHourAR = parts.hour + parts.minute / 60;
+  if (slotStartHourAR + SLOT_DURATION_MIN / 60 > BUSINESS_END_HOUR_AR) return false;
+  // Aligned to half-hour grid (0 or 30 min).
+  if (parts.minute !== 0 && parts.minute !== 30) return false;
+  return true;
+}
+
 export interface FindSlotsInput {
   nowMs: number;
   busy: BusyInterval[];

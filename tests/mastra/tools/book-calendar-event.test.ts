@@ -75,7 +75,10 @@ const ctx = {
   contactName: 'Mariano',
 };
 
-const FUTURE_SLOT = Date.UTC(2030, 0, 1, 12, 0); // arbitrary future epoch
+// Wednesday Jan 2, 2030 at 11:00 AR = 14:00 UTC. Falls on the candidate grid:
+// weekday, business hours (9-19 AR), half-hour aligned, future, well within
+// any reasonable lookahead window.
+const FUTURE_SLOT = Date.UTC(2030, 0, 2, 14, 0);
 
 const baseInput = {
   slotStartMs: FUTURE_SLOT,
@@ -103,6 +106,20 @@ describe('book-calendar-event — pre-flight checks', () => {
     const out = await runBookCalendarEvent(baseInput, ctx);
     expect(out.success).toBe(false);
     expect(out.reason).toBe('calendar_not_configured');
+    expect(mFetchBusy).not.toHaveBeenCalled();
+    expect(mCreateEvent).not.toHaveBeenCalled();
+  });
+
+  it('returns reason=invalid_slot when slotStartMs is off the candidate grid (LLM hallucination guard)', async () => {
+    // 7:20 AM AR — outside business hours (the bug we saw in production).
+    const hallucinatedSlot = Date.UTC(2030, 0, 2, 10, 20); // 7:20 AR
+    const out = await runBookCalendarEvent(
+      { ...baseInput, slotStartMs: hallucinatedSlot },
+      ctx,
+    );
+    expect(out.success).toBe(false);
+    expect(out.reason).toBe('invalid_slot');
+    // Crucially: we should NOT have called freebusy or createEvent.
     expect(mFetchBusy).not.toHaveBeenCalled();
     expect(mCreateEvent).not.toHaveBeenCalled();
   });
