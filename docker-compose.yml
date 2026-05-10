@@ -11,11 +11,16 @@
 services:
   fama:
     build: .
-    container_name: fama
+    # NO container_name fijo: dos stacks (el viejo manual y el nuevo de Dokploy)
+    # peleaban por el nombre "fama" y bloqueaban el redeploy. El alias de red
+    # mantiene resolución estable para Traefik (http://fama:4111) sin importar
+    # qué nombre interno tenga el container.
     restart: unless-stopped
     init: true
     networks:
-      - dokploy-network
+      dokploy-network:
+        aliases:
+          - fama
     env_file:
       - .env
     environment:
