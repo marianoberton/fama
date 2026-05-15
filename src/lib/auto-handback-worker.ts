@@ -50,29 +50,31 @@ async function runTick(now: number, inactivityThresholdMs: number): Promise<void
 
   if (conversations.length === 0) return;
 
-  let flipped = 0;
-  for (const conv of conversations) {
-    const idleMs = now - conv.lastActivityAtMs;
-    if (idleMs < inactivityThresholdMs) continue;
+  const idle = conversations.filter((c) => now - c.lastActivityAtMs >= inactivityThresholdMs);
 
-    try {
-      await toggleChatwootStatus({ conversationId: conv.id, status: 'pending' });
-      logger.info(
-        {
-          conversationId: conv.id,
-          idleMin: Math.round(idleMs / 60_000),
-          thresholdMin: Math.round(inactivityThresholdMs / 60_000),
-        },
-        'auto-handback: flipped open → pending (idle conversation)',
-      );
-      flipped++;
-    } catch (err) {
-      logger.error(
-        { err: (err as Error).message, conversationId: conv.id },
-        'auto-handback: toggle_status failed',
-      );
-    }
-  }
+  let flipped = 0;
+  await Promise.allSettled(
+    idle.map(async (conv) => {
+      const idleMs = now - conv.lastActivityAtMs;
+      try {
+        await toggleChatwootStatus({ conversationId: conv.id, status: 'pending' });
+        logger.info(
+          {
+            conversationId: conv.id,
+            idleMin: Math.round(idleMs / 60_000),
+            thresholdMin: Math.round(inactivityThresholdMs / 60_000),
+          },
+          'auto-handback: flipped open → pending (idle conversation)',
+        );
+        flipped++;
+      } catch (err) {
+        logger.error(
+          { err: (err as Error).message, conversationId: conv.id },
+          'auto-handback: toggle_status failed',
+        );
+      }
+    }),
+  );
 
   logger.info(
     { scanned: conversations.length, flipped },

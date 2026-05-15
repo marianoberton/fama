@@ -108,6 +108,10 @@ export class CircuitBreaker {
     return this.state;
   }
 
+  get circuitName(): string {
+    return this.opts.name;
+  }
+
   /** For tests + debug. */
   reset(): void {
     this.state = 'closed';
@@ -132,7 +136,7 @@ export async function withCircuit<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   if (breaker.isOpen()) {
-    throw new CircuitOpenError(breaker['opts'].name);
+    throw new CircuitOpenError(breaker.circuitName);
   }
   try {
     const result = await fn();

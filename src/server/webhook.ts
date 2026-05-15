@@ -123,7 +123,7 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
   // interpret a slow LLM call as a webhook failure and flip the conversation
   // status to `open`. In test mode we await synchronously so assertions can
   // inspect side effects without races.
-  const processing = processMessageBackground({ input, message, env });
+  const processing = processMessageBackground(input, message, env);
   if (env.NODE_ENV === 'test') {
     return await processing;
   }
@@ -141,17 +141,11 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
 // Background processing — everything that doesn't need to block the 202.
 // ---------------------------------------------------------------------------
 
-interface BackgroundInput {
-  input: HandlerInput;
-  message: ExtractedMessage;
-  env: ReturnType<typeof loadEnv>;
-}
-
-async function processMessageBackground({
-  input,
-  message,
-  env,
-}: BackgroundInput): Promise<HandlerOutcome> {
+async function processMessageBackground(
+  input: HandlerInput,
+  message: ExtractedMessage,
+  env: ReturnType<typeof loadEnv>,
+): Promise<HandlerOutcome> {
   const rawAttachments = message.attachments;
 
   // Track for NURTURING. Resets retry counter — a fresh inbound means the

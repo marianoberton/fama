@@ -307,7 +307,14 @@ export async function listConversationsByStatus(input: {
 
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   const raw = pickConversationArray(json);
-  return raw
+  const results = raw
     .map(parseConversationSummary)
     .filter((c): c is ChatwootConversationSummary => c !== null);
+  if (raw.length >= 25) {
+    logger.warn(
+      { count: raw.length, status: input.status },
+      'chatwoot: listConversationsByStatus returned a full page — there may be more conversations not returned (pagination not implemented)',
+    );
+  }
+  return results;
 }
