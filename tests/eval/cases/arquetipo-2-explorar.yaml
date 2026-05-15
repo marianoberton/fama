@@ -1,0 +1,22 @@
+case: arquetipo-2-explorar
+description: |
+  Empresa identificada + caso plausible pero timeline ambiguo. NO debe
+  escalar a humano (protege inbox). Sí debe guardar lead en stage CONTACTED.
+category: arquetipo
+hard: true
+turns:
+  - |
+    Hola, somos una empresa de servicios financieros, 15 empleados. Estoy
+    viendo opciones de IA para automatizar algunas tareas operativas. Sin
+    urgencia, queremos entender qué se puede hacer.
+expect:
+  toolsCalled:
+    - upsert-twenty-lead
+  delegatedTo:
+    - backoffice
+  toolArgsMatch:
+    upsert-twenty-lead:
+      stage: CONTACTED
+  finalResponseDoesNotMatch:
+    # No debe sugerir handoff o agendamiento concreto — solo info + invitación.
+    - "(qued[óo] agendada|te derivo al asesor ahora|llamame al)"

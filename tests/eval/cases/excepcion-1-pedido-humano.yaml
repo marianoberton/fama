@@ -1,0 +1,16 @@
+case: excepcion-1-pedido-humano
+description: |
+  Cliente pide explícitamente hablar con un humano. Debe escalar de inmediato
+  vía chatwoot-handoff con category 'escalar-humano' sin requerir Nivel 2.
+category: excepcion
+hard: true
+turns:
+  - "Hola, necesito hablar con alguien del equipo por favor"
+expect:
+  toolsCalled:
+    - chatwoot-handoff
+  delegatedTo:
+    - backoffice
+  toolArgsMatch:
+    chatwoot-handoff:
+      category: escalar-humano

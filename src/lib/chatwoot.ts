@@ -1,4 +1,5 @@
 import { loadEnv } from '../config/env.js';
+import { CircuitBreaker, CircuitOpenError } from './circuit-breaker.js';
 
 export class ChatwootNotConfiguredError extends Error {
   constructor() {
@@ -20,6 +21,25 @@ export class ChatwootApiError extends Error {
   }
 }
 
+// Circuit breaker for Chatwoot writes (POST). 3 consecutive 5xx/network
+// failures within 60s opens the circuit for 2 min. Reads (GET) bypass the
+// circuit — they're used by NURTURING / auto-handback / known-customer which
+// already fail-closed gracefully.
+// Exported so the test suite can reset it between cases.
+export const chatwootWriteCircuit = new CircuitBreaker({
+  name: 'chatwoot-write',
+  failureThreshold: 3,
+  failureWindowMs: 60_000,
+  recoveryMs: 120_000,
+});
+
+export class ChatwootCircuitOpenError extends Error {
+  constructor() {
+    super('Chatwoot write circuit is open — too many recent failures');
+    this.name = 'ChatwootCircuitOpenError';
+  }
+}
+
 export function requireChatwootToken(): string {
   const env = loadEnv();
   if (!env.CHATWOOT_API_TOKEN) {
@@ -33,26 +53,44 @@ async function chatwootPost(input: {
   path: 'labels' | 'messages' | 'assignments' | 'toggle_status';
   body: unknown;
 }): Promise<unknown> {
+  if (chatwootWriteCircuit.isOpen()) {
+    throw new ChatwootCircuitOpenError();
+  }
+
   const env = loadEnv();
   const token = requireChatwootToken();
 
   const url = `${env.CHATWOOT_BASE_URL}/api/v1/accounts/${env.CHATWOOT_ACCOUNT_ID}/conversations/${input.conversationId}/${input.path}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      api_access_token: token,
-    },
-    body: JSON.stringify(input.body),
-  });
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        api_access_token: token,
+      },
+      body: JSON.stringify(input.body),
+    });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new ChatwootApiError(res.status, res.statusText, text);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      // Only 5xx counts as a circuit-tripping failure. 4xx is "our bug" and
+      // retrying won't help — don't burn the circuit on those.
+      if (res.status >= 500) {
+        chatwootWriteCircuit.recordFailure();
+      }
+      throw new ChatwootApiError(res.status, res.statusText, text);
+    }
+
+    chatwootWriteCircuit.recordSuccess();
+    return res.json().catch(() => ({}));
+  } catch (err) {
+    // Network-level errors (DNS, ECONNREFUSED, AbortError) — count as failure.
+    if (!(err instanceof ChatwootApiError) && !(err instanceof CircuitOpenError)) {
+      chatwootWriteCircuit.recordFailure();
+    }
+    throw err;
   }
-
-  return res.json().catch(() => ({}));
 }
 
 async function chatwootGet(input: {
@@ -236,4 +274,40 @@ export async function toggleChatwootStatus(input: {
     path: 'toggle_status',
     body: { status: input.status },
   });
+}
+
+/**
+ * Lists conversations with a given status for the account's inbox. Used by the
+ * auto-handback worker to find open conversations that have been idle too long.
+ *
+ * Pagination: returns the first page only (up to 25 conversations). For typical
+ * inbox sizes this is sufficient; add pagination if needed in v4.
+ */
+export async function listConversationsByStatus(input: {
+  status: ChatwootConversationStatus;
+  inboxId?: number;
+}): Promise<ChatwootConversationSummary[]> {
+  const env = loadEnv();
+  const token = requireChatwootToken();
+
+  const params = new URLSearchParams({ status: input.status, page: '1' });
+  if (input.inboxId !== undefined) params.set('inbox_id', String(input.inboxId));
+
+  const url = `${env.CHATWOOT_BASE_URL}/api/v1/accounts/${env.CHATWOOT_ACCOUNT_ID}/conversations?${params.toString()}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { api_access_token: token },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new ChatwootApiError(res.status, res.statusText, text);
+  }
+
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const raw = pickConversationArray(json);
+  return raw
+    .map(parseConversationSummary)
+    .filter((c): c is ChatwootConversationSummary => c !== null);
 }

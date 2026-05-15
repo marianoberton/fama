@@ -51,7 +51,7 @@ vi.mock('../../src/lib/chatwoot.js', async (importActual) => {
   };
 });
 
-const { handleChatwootWebhook } = await import('../../src/server/webhook.js');
+const { handleChatwootWebhook, llmCircuit } = await import('../../src/server/webhook.js');
 const {
   sendChatwootMessage,
   getContactConversations,
@@ -92,6 +92,8 @@ describe('orchestration: webhook → recepcionista', () => {
     const dedupClient = createClient({ url: ':memory:' });
     await setDedupStoreClientForTests(dedupClient);
     await _truncateDedupForTests();
+    // Reset the LLM circuit so failures from a prior test don't bleed in.
+    llmCircuit.reset();
   });
 
   it('on filter pass with a long enough first message, invokes recepcionista and posts the reply', async () => {
@@ -299,6 +301,38 @@ describe('orchestration: webhook → recepcionista', () => {
       conversationId: 8,
       content: 'Listo, te ayudo.',
     });
+  });
+
+  it('LLM circuit open → posts fixed fallback message + escalates to human (no LLM call)', async () => {
+    // Force the circuit to open by recording 3 consecutive failures.
+    llmCircuit.recordFailure();
+    llmCircuit.recordFailure();
+    llmCircuit.recordFailure();
+    expect(llmCircuit.getState()).toBe('open');
+
+    const { mastra, generate } = buildMockMastra(async () => ({
+      text: 'should not be called',
+      steps: [],
+    }));
+    mockSend.mockResolvedValue(undefined);
+
+    const outcome = await handleChatwootWebhook({
+      pathToken: 'test-path-token',
+      rawBody: happyPathBody(LONG_MESSAGE),
+      mastra,
+    });
+
+    // 202 with the llmCircuitOpen flag, LLM never invoked.
+    expect(outcome.status).toBe(202);
+    expect(outcome.body).toEqual({ received: true, llmCircuitOpen: true });
+    expect(generate).not.toHaveBeenCalled();
+
+    // Should have posted the fixed fallback to the customer.
+    const fallbackCall = mockSend.mock.calls.find(
+      (c) => !c[0].private && c[0].content.includes('problema técnico'),
+    );
+    expect(fallbackCall).toBeDefined();
+    expect(fallbackCall![0].conversationId).toBe(4248);
   });
 
   it('duplicate Chatwoot retry (same message id) → 200 silent, agent NOT invoked, no outbound', async () => {

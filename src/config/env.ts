@@ -44,6 +44,18 @@ const envSchema = z.object({
   CALENDAR_IDS_TO_CHECK: z.string().default(''),
   CALENDAR_PRIMARY: z.string().default(''),
 
+  // Langfuse observability (v4 Sprint 1). All optional at boot — when keys are
+  // empty no Langfuse exporter is registered and traces only live in Mastra
+  // Studio (DefaultExporter). When configured, every agent.generate() + tool
+  // call + sub-agent delegation gets exported to Langfuse with conversationId
+  // as sessionId.
+  // LANGFUSE_BASE_URL: full URL of self-hosted Langfuse (e.g.
+  //   'https://langfuse.fomologic.com'). Empty defaults to cloud.langfuse.com.
+  // LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY: from Langfuse Settings → API Keys.
+  LANGFUSE_BASE_URL: z.string().default(''),
+  LANGFUSE_PUBLIC_KEY: z.string().default(''),
+  LANGFUSE_SECRET_KEY: z.string().default(''),
+
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])

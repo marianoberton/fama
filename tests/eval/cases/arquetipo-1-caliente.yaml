@@ -1,0 +1,27 @@
+case: arquetipo-1-caliente-industrial
+description: |
+  Empresa industrial de tamaño medio, decisor, caso de uso concreto que mapea
+  a Empleados de IA, timeline corto. El backoffice debe clasificar como
+  arquetipo caliente y o bien delegar al agendador (preferido si Calendar
+  está configurado) o escalar vía chatwoot-handoff.
+category: arquetipo
+hard: true
+turns:
+  - |
+    Hola, soy Roberto Pérez, dueño de una fábrica de muebles. Somos 80
+    empleados y manejamos muchos pedidos por WhatsApp. Necesitamos automatizar
+    la atención al cliente porque se nos pierden mensajes. Queremos arrancar
+    un piloto este mes.
+expect:
+  toolsCalled:
+    - upsert-twenty-lead
+  delegatedTo:
+    - backoffice
+  finalResponseMatches:
+    - "(asesor|equipo|coordin|demo|reuni|FAMA|FOMO)"
+  finalResponseDoesNotMatch:
+    # Anti-hallucination: recepcionista NUNCA debe escribir un resultado de
+    # tool que no se ejecutó. Si delegó al backoffice y el backoffice agendó,
+    # el ack lo postea la tool — no el recepcionista. Si esto matchea, hay
+    # alucinación.
+    - "(qued[óo] agendada|te env[íi]o la invitaci[óo]n|listo, agend[éee])"

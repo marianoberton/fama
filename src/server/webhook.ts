@@ -6,6 +6,9 @@ import { logger } from '../lib/logger.js';
 import {
   sendChatwootMessage,
   getContactConversations,
+  addChatwootLabels,
+  assignChatwootTeam,
+  toggleChatwootStatus,
   ChatwootNotConfiguredError,
 } from '../lib/chatwoot.js';
 import {
@@ -15,6 +18,8 @@ import {
 } from '../lib/nurturing-store.js';
 import { tryMarkProcessed } from '../lib/dedup-store.js';
 import { shouldSendHardcodedWelcome, WELCOME_TEXT } from '../lib/welcome.js';
+import { CircuitBreaker, CircuitOpenError } from '../lib/circuit-breaker.js';
+import { trackBackground } from '../lib/background-tracker.js';
 import {
   detectKnownCustomer,
   formatKnownCustomerContext,
@@ -42,6 +47,20 @@ export interface HandlerInput {
   rawBody: string;
   mastra: Mastra;
 }
+
+// Circuit breaker for the LLM call (recepcionista.generate). 3 consecutive
+// failures within 60s opens the circuit for 5 min. While open, the webhook
+// posts a fixed fallback message + escalates to human via Chatwoot instead
+// of invoking the LLM. Exported for tests.
+export const llmCircuit = new CircuitBreaker({
+  name: 'llm-recepcionista',
+  failureThreshold: 3,
+  failureWindowMs: 60_000,
+  recoveryMs: 5 * 60_000,
+});
+
+const LLM_FALLBACK_MESSAGE =
+  'Disculpá, en este momento tengo un problema técnico. Te paso con el equipo y te respondemos en cuanto podamos.';
 
 export async function handleChatwootWebhook(input: HandlerInput): Promise<HandlerOutcome> {
   const env = loadEnv();
@@ -75,11 +94,10 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     logger.error('filter passed but message extraction failed');
     return { status: 500, body: { error: 'message_extraction_failed' } };
   }
-  const rawAttachments = message.attachments;
 
-  // Dedupe: Chatwoot may retransmit the same message_created event on retry.
-  // We claim the message_id atomically before any side-effect (NURTURING
-  // recordInbound, welcome post, agent invocation) so a duplicate is a no-op.
+  // Dedup must run synchronously — it's the idempotency gate. The INSERT OR
+  // IGNORE must complete before we respond 202 so that a Chatwoot retry that
+  // arrives while we're processing doesn't slip through.
   // Fail-open: a dedup-store error logs and proceeds — better one duplicate
   // reply than a stuck inbox.
   try {
@@ -100,6 +118,41 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
       'dedup: tryMarkProcessed failed — proceeding without dedupe',
     );
   }
+
+  // Background processing: respond 202 immediately so Chatwoot doesn't
+  // interpret a slow LLM call as a webhook failure and flip the conversation
+  // status to `open`. In test mode we await synchronously so assertions can
+  // inspect side effects without races.
+  const processing = processMessageBackground({ input, message, env });
+  if (env.NODE_ENV === 'test') {
+    return await processing;
+  }
+  // Tracked so graceful shutdown can drain in-flight work before exit.
+  trackBackground(processing).catch((err) => {
+    logger.error(
+      { err: (err as Error).message, conversationId: message.conversationId },
+      'webhook: background processing failed',
+    );
+  });
+  return { status: 202, body: { received: true } };
+}
+
+// ---------------------------------------------------------------------------
+// Background processing — everything that doesn't need to block the 202.
+// ---------------------------------------------------------------------------
+
+interface BackgroundInput {
+  input: HandlerInput;
+  message: ExtractedMessage;
+  env: ReturnType<typeof loadEnv>;
+}
+
+async function processMessageBackground({
+  input,
+  message,
+  env,
+}: BackgroundInput): Promise<HandlerOutcome> {
+  const rawAttachments = message.attachments;
 
   // Track for NURTURING. Resets retry counter — a fresh inbound means the
   // client is alive, so any pending follow-up cycle restarts from zero.
@@ -255,6 +308,20 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     return { status: 202, body: { received: true, welcome: true } };
   }
 
+  // LLM circuit breaker: if the recepcionista has been failing repeatedly,
+  // short-circuit instead of letting Chatwoot timeout-and-flip the conversation.
+  // Fallback: post a fixed message + escalate to a human via chatwoot-handoff.
+  if (llmCircuit.isOpen()) {
+    logger.warn(
+      { conversationId: message.conversationId },
+      'webhook: LLM circuit open — using fallback path (fixed message + escalate)',
+    );
+    return await llmCircuitOpenFallback({
+      conversationId: message.conversationId,
+      env,
+    });
+  }
+
   // Native Mastra supervisor delegation: recepcionista decides when to call
   // the backoffice subagent based on its description + instructions.
   try {
@@ -270,16 +337,34 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     requestContext.set('contactId', message.contactId);
     if (message.contactPhone) requestContext.set('phone', message.contactPhone);
     if (message.contactName) requestContext.set('contactName', message.contactName);
-    const reply = await recepcionista.generate(llmInput, {
-      memory: {
-        thread: `chatwoot-${message.conversationId}`,
-        resource: `contact-${message.contactId}`,
-      },
-      maxSteps: 8,
-      requestContext,
-    });
+    // Langfuse mapping (v4 Sprint 1): sessionId groups all turns of a
+    // conversation together; userId groups all conversations of a contact.
+    requestContext.set('sessionId', `chatwoot-${message.conversationId}`);
+    requestContext.set('userId', `contact-${message.contactId}`);
+    let reply;
+    try {
+      reply = await recepcionista.generate(llmInput, {
+        memory: {
+          thread: `chatwoot-${message.conversationId}`,
+          resource: `contact-${message.contactId}`,
+        },
+        maxSteps: 8,
+        requestContext,
+      });
+      llmCircuit.recordSuccess();
+    } catch (err) {
+      llmCircuit.recordFailure();
+      throw err;
+    }
 
     const skipFinalPost = handoffAlreadyPostedAck(reply);
+
+    // Flatten tool calls across all steps for observability (Issue 3: debug
+    // whether knowledge-search is being called and with what query).
+    const allToolCalls = (reply.steps ?? []).flatMap((s: unknown) => {
+      const step = s as Record<string, unknown>;
+      return Array.isArray(step['toolCalls']) ? step['toolCalls'] : [];
+    });
 
     logger.info(
       {
@@ -288,6 +373,10 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
         textLength: reply.text.length,
         steps: reply.steps?.length ?? 0,
         skipFinalPost,
+        toolCalls: allToolCalls.map((tc: unknown) => {
+          const t = tc as Record<string, unknown>;
+          return { tool: t['toolName'], args: t['args'] };
+        }),
       },
       'recepcionista responded',
     );
@@ -353,6 +442,66 @@ export async function handleChatwootWebhook(input: HandlerInput): Promise<Handle
     accountId: env.CHATWOOT_ACCOUNT_ID,
   });
   return { status: 202, body: { received: true } };
+}
+
+/**
+ * Fallback path when the LLM circuit is open. Posts a fixed message to the
+ * customer and escalates via chatwoot-handoff so a human can take over. Both
+ * Chatwoot calls are best-effort: if Chatwoot is also down, we log and exit
+ * — the customer won't get a reply but at least nothing crashes.
+ */
+async function llmCircuitOpenFallback(input: {
+  conversationId: number;
+  env: ReturnType<typeof loadEnv>;
+}): Promise<HandlerOutcome> {
+  const { conversationId, env } = input;
+
+  try {
+    await sendChatwootMessage({
+      conversationId,
+      content: LLM_FALLBACK_MESSAGE,
+    });
+    logger.info(
+      { conversationId },
+      'webhook: posted LLM-fallback message to customer',
+    );
+  } catch (err) {
+    if (err instanceof ChatwootNotConfiguredError) {
+      logger.warn(
+        { conversationId },
+        'webhook: LLM-fallback — Chatwoot not configured, message not sent',
+      );
+    } else {
+      logger.error(
+        { err: (err as Error).message, conversationId },
+        'webhook: LLM-fallback message post failed',
+      );
+    }
+  }
+
+  // Escalate: add label + private note + assign team + flip status to open.
+  // We use the chatwoot.ts low-level helpers directly here (not the
+  // chatwoot-handoff tool) because the tool requires an LLM-formulated
+  // reason/ack, and the LLM is exactly what's broken right now.
+  try {
+    await addChatwootLabels({ conversationId, labels: ['escalar-humano'] });
+    await sendChatwootMessage({
+      conversationId,
+      content:
+        '[LLM circuit abierto] El bot no pudo responder por fallo del LLM. Tomá la conversación manualmente.',
+      private: true,
+    });
+    await assignChatwootTeam({ conversationId, teamId: env.CHATWOOT_TEAM_ID });
+    await toggleChatwootStatus({ conversationId, status: 'open' });
+    logger.info({ conversationId }, 'webhook: LLM-fallback escalation complete');
+  } catch (err) {
+    logger.error(
+      { err: (err as Error).message, conversationId },
+      'webhook: LLM-fallback escalation steps failed (continuing)',
+    );
+  }
+
+  return { status: 202, body: { received: true, llmCircuitOpen: true } };
 }
 
 /**

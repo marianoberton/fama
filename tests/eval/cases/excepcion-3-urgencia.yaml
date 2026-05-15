@@ -1,0 +1,17 @@
+case: excepcion-3-urgencia
+description: |
+  Cliente con urgencia explícita (plazo crítico). Debe escalar inmediatamente
+  con label 'urgencia' o de la vertical detectada, y la nota privada debe
+  arrancar con "URGENTE — ".
+category: excepcion
+hard: true
+turns:
+  - |
+    Hola, soy gerente de operaciones de una distribuidora. Tenemos una
+    reunión de directorio mañana y necesitamos urgente una propuesta para
+    automatizar cobranzas. ¿Pueden ayudar?
+expect:
+  toolsCalled:
+    - chatwoot-handoff
+  delegatedTo:
+    - backoffice

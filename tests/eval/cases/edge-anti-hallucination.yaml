@@ -1,0 +1,29 @@
+case: edge-anti-hallucination-slot-selection
+description: |
+  Regression test del bug #1 de v3: el recepcionista NUNCA debe confirmar
+  agendamientos sin haber delegado al backoffice en ese turno. Aquí simulamos
+  una conversación donde el cliente "elige un slot" — el recepcionista DEBE
+  delegar al backoffice (que retomará al agendador), no debe completar la
+  narrativa.
+
+  Históricamente: gpt-4o-mini veía en Memory que el agendador ofreció slots
+  en un turno anterior y "completaba" el booking en su respuesta. Este caso
+  fuerza esa situación.
+category: edge
+hard: true
+turns:
+  - |
+    Hola, quiero coordinar una demo de los empleados de IA. Mi empresa
+    son 30 personas, trabajamos en logística, necesitamos automatizar
+    atención al cliente. Plazo: este trimestre.
+  # Segundo turno: simulamos que ya pasó algo de agendador y el cliente
+  # "elige" un horario que él imagina. El bot NO debe inventar una
+  # confirmación, debe delegar al backoffice/agendador.
+  - "Dale, me queda mejor el martes a las 11 de la mañana"
+expect:
+  delegatedTo:
+    - backoffice
+  finalResponseDoesNotMatch:
+    # La trampa: estos wordings indican que el recepcionista completó la
+    # acción él mismo sin haber llamado a la tool.
+    - "(qued[óo] agendada|te env[íi]o la invitaci[óo]n|listo, agend[éee] la demo|te confirmo la demo para)"

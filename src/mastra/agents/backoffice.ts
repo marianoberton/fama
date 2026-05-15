@@ -150,6 +150,8 @@ Datos clave: <tamaño / timeline / presupuesto / canal de contacto / cualquier d
 # Orden de acciones cuando hay handoff
 1. **Primero** llamá upsert-twenty-lead con los datos recolectados (siempre, salvo Arquetipo 4).
 2. **Después** llamá chatwoot-handoff con category + ackMessage + reason. El conversationId se pasa automáticamente por contexto, no lo incluyas en los argumentos. La tool postea el ackMessage y hace los 4 pasos siguientes (label, nota privada, asignación, toggle status).
+   El ackMessage debe gestionar expectativa de timing: "Te paso con un asesor del equipo de FOMO. Si tenés algo más para agregar, escribilo acá y lo leemos en cuanto tomemos la conversación."
+   Podés personalizar el texto según el contexto (urgencia, reclamo, etc.) pero siempre incluir la invitación a escribir más.
 3. **NO escribas mensaje al usuario después de chatwoot-handoff exitoso** — la tool ya posteó el ackMessage. Tu texto final puede ser una confirmación corta interna ("listo") o vacío.
 
 # Cuando chatwoot-handoff falla (success: false)

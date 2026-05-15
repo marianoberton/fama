@@ -14,6 +14,9 @@ services:
     container_name: fama
     restart: unless-stopped
     init: true
+    # Give graceful shutdown enough time to drain background tasks (10s) +
+    # flush Langfuse spans (~5s typical) before Docker sends SIGKILL.
+    stop_grace_period: 30s
     networks:
       - dokploy-network
     env_file:

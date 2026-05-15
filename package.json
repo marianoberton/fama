@@ -10,12 +10,15 @@
     "start": "mastra start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx --env-file=.env tests/eval/runner.ts"
   },
   "dependencies": {
     "@mastra/core": "latest",
+    "@mastra/langfuse": "^1.2.5",
     "@mastra/libsql": "^1.9.1",
     "@mastra/memory": "^1.17.4",
+    "@mastra/observability": "^1.11.1",
     "googleapis": "^171.4.0",
     "mastra": "latest",
     "openai": "^6.36.0",
@@ -25,8 +28,10 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "pino-pretty": "^11.3.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "yaml": "^2.9.0"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,55 @@
+# Eval set CI — runs canonical conversation cases against the real LLM and
+# blocks merges to `main` if any HARD case fails. Soft cases warn only.
+#
+# Required GitHub secret: OPENAI_API_KEY.
+# Other env vars are stubbed (no real Chatwoot/Twenty/Calendar calls — the
+# runner mocks them at the fetch layer).
+#
+# Cost per run: ~USD 0.10-0.50 with the current ~5 cases. As the set grows,
+# bump the timeout and consider sharding.
+
+name: eval
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run eval set
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Stubs — runner mocks fetch for non-OpenAI URLs, so these values
+          # only need to satisfy env schema validation.
+          CHATWOOT_BASE_URL: https://chat.example.com
+          CHATWOOT_ACCOUNT_ID: '1'
+          CHATWOOT_INBOX_ID: '3'
+          CHATWOOT_AGENT_BOT_ID: '2'
+          CHATWOOT_TEAM_ID: '1'
+          CHATWOOT_PATH_TOKEN: ci-stub
+          CHATWOOT_API_TOKEN: ci-stub
+          NODE_ENV: test
+        run: npx tsx tests/eval/runner.ts
+
+# Behavior:
+#   - PR to main: this job runs. If any HARD case fails, exit code != 0 →
+#     the required status check is red and merge is blocked (configure the
+#     branch protection rule for `main` to require this check).
+#   - Push to main: runs as informational (in case something slipped in).
+#   - Feature branches: NOT enforced by branch protection — devs can iterate
+#     freely; only the PR check blocks the merge.
