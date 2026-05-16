@@ -1,0 +1,620 @@
+# FAMA v1 — Especificación Técnica de Tools
+# Contrato completo: input, output, schemas, errores, idempotencia
+
+version: "1.0.0"
+description: |
+  Cada tool definida con su contrato técnico. Esto permite reimplementar
+  FAMA en cualquier framework o lenguaje manteniendo compatibilidad.
+
+tools:
+
+  # ============================================================
+  # knowledge-search
+  # ============================================================
+  - id: knowledge-search
+    name: "Knowledge Search"
+    description: |
+      Búsqueda semántica sobre la knowledge base interna de FOMO.
+      Usar cuando el cliente pregunta algo concreto sobre la empresa,
+      productos, precios, empleados de IA, o condiciones comerciales.
+    availability:
+      - recepcionista
+      - backoffice
+    input:
+      schema:
+        type: object
+        required: [query]
+        properties:
+          query:
+            type: string
+            minLength: 1
+            description: "Texto de búsqueda en lenguaje natural"
+          limit:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+            description: "Cantidad máxima de resultados"
+    output:
+      schema:
+        type: object
+        required: [results]
+        properties:
+          results:
+            type: array
+            items:
+              type: object
+              required: [title, content, source]
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                source:
+                  type: string
+                  description: "Nombre del archivo fuente en src/knowledge/"
+    implementation:
+      type: in_memory_search
+      source_dir: src/knowledge/
+      files:
+        - identity.md
+        - employees.md
+        - pricing.md
+        - services.md
+        - faqs.md
+        - sales.md
+      search_method: "substring + keyword matching (v1)"
+      note: "v2 migrar a embeddings vectoriales"
+    errors:
+      - code: empty_query
+        message: "Query cannot be empty"
+        http_status: 400
+      - code: no_results
+        message: "No matching knowledge found"
+        http_status: 200
+        body: { results: [] }
+    idempotency: true
+    side_effects: none
+
+  # ============================================================
+  # chatwoot-handoff
+  # ============================================================
+  - id: chatwoot-handoff
+    name: "Chatwoot Handoff"
+    description: |
+      Escala una conversación a un humano del equipo.
+      Ejecuta 5 llamadas a la API de Chatwoot en orden atómico.
+      Lock en memoria por conversationId (60s) para idempotencia.
+    availability:
+      - backoffice
+      - agendador
+    input:
+      schema:
+        type: object
+        required: [conversationId, category, ackMessage, reason]
+        properties:
+          conversationId:
+            type: integer
+            description: "ID de conversación en Chatwoot"
+          category:
+            type: string
+            enum:
+              - escalar-humano
+              - venta-capacitacion
+              - venta-agentes
+              - venta-consultoria
+              - reclamo
+              - urgencia
+            description: "Label a aplicar en Chatwoot"
+          ackMessage:
+            type: string
+            minLength: 1
+            description: |
+              Mensaje público al cliente (paso 0).
+              El agente NO debe enviar mensaje adicional después.
+          reason:
+            type: string
+            minLength: 1
+            description: |
+              Nota privada para el equipo. Formato:
+              Categoría: <category>
+              Motivo: <razón>
+              Cliente: <nombre>
+              Empresa: <empresa>
+              Datos clave: <tamaño, timeline, presupuesto>
+    output:
+      schema:
+        type: object
+        required: [success, step_failed, replyHandled]
+        properties:
+          success:
+            type: boolean
+          step_failed:
+            type: [integer, "null"]
+            enum: [0, 1, 2, 3, 4, null]
+            description: |
+              0 = ack falló, 1 = labels falló, 2 = nota privada falló,
+              3 = assignment falló, 4 = toggle_status falló, null = todo OK
+          error:
+            type: string
+            description: "Mensaje de error si success=false"
+          replyHandled:
+            type: boolean
+            description: |
+              true = se posteó ack al cliente.
+              El webhook handler usa esto para no duplicar.
+          idempotentSkip:
+            type: boolean
+            description: "true = ya se handoffeó en los últimos 60s"
+    execution_order:
+      - step: 0
+        name: ack_publico
+        method: POST
+        endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/messages"
+        body:
+          content: "{{ackMessage}}"
+          message_type: outgoing
+          private: false
+        critical: true
+        on_failure: abort_and_report
+
+      - step: 1
+        name: labels
+        method: POST
+        endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/labels"
+        body:
+          labels: ["{{category}}"]
+        critical: false
+        on_failure: continue
+
+      - step: 2
+        name: nota_privada
+        method: POST
+        endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/messages"
+        body:
+          content: "{{reason}}"
+          message_type: outgoing
+          private: true
+        critical: false
+        on_failure: continue
+
+      - step: 3
+        name: assignment
+        method: POST
+        endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/assignments"
+        body:
+          team_id: "{{CHATWOOT_TEAM_ID}}"
+        critical: false
+        on_failure: continue
+
+      - step: 4
+        name: toggle_status
+        method: POST
+        endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/toggle_status"
+        body:
+          status: open
+        critical: false
+        on_failure: continue
+    idempotency:
+      mechanism: memory_lock
+      lock_key: "handoff_{{conversationId}}"
+      ttl_seconds: 60
+      behavior: "Si lock activo, retorna idempotentSkip=true"
+    errors:
+      - code: invalid_category
+        message: "Category not in CHATWOOT_VALID_LABELS"
+        http_status: 400
+      - code: chatwoot_not_configured
+        message: "CHATWOOT_API_TOKEN not set"
+        http_status: 503
+      - code: conversation_not_found
+        message: "Chatwoot returned 404"
+        http_status: 404
+      - code: rate_limited
+        message: "Chatwoot rate limit exceeded"
+        http_status: 429
+    side_effects: |
+      Modifica estado en Chatwoot: labels, mensajes, asignación, status.
+      NO idempotente en Chatwoot (la API no lo soporta), pero el lock
+      evita duplicados desde nuestro lado.
+
+  # ============================================================
+  # upsert-twenty-lead
+  # ============================================================
+  - id: upsert-twenty-lead
+    name: "Upsert Twenty Lead"
+    description: |
+      Crea o actualiza un lead en Twenty CRM.
+      Busca por teléfono, si existe actualiza; si no, crea.
+      También maneja Company y Opportunity.
+    availability:
+      - backoffice
+    input:
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+            description: "Nombre completo. Si vacío, se crea 'Anónimo'"
+          email:
+            type: string
+            format: email
+          company:
+            type: string
+            description: "Nombre de empresa"
+          stage:
+            type: string
+            enum: [NEW, CONTACTED, MEETING, PROPOSAL, WON, LOST]
+            description: "Estado en el pipeline"
+          source:
+            type: string
+            enum: [whatsapp, web, telegram, otro]
+            default: whatsapp
+          notes:
+            type: string
+            description: "Notas estructuradas. Se crea Note adjunta al Person"
+          arquetipo:
+            type: string
+            enum: [caliente, a-explorar, sin-claridad, no-lead]
+          exception:
+            type: string
+            enum: [pedido-humano, consultoria, urgencia, reclamo, demo]
+    output:
+      schema:
+        type: object
+        required: [success]
+        properties:
+          success:
+            type: boolean
+          personId:
+            type: string
+            description: "ID del Person en Twenty"
+          companyId:
+            type: string
+          opportunityId:
+            type: string
+          noteId:
+            type: string
+          created:
+            type: boolean
+            description: "true = se creó, false = se actualizó"
+          error:
+            type: string
+    implementation:
+      type: graphql_api
+      endpoint: "{{TWENTY_API_URL}}/graphql"
+      auth: "Bearer {{TWENTY_API_KEY}}"
+      operations:
+        - name: findPersonByPhone
+          query: |
+            query FindPerson($phone: StringFilter) {
+              people(filter: { phonePrimary: $phone }) { edges { node { id } } }
+            }
+        - name: createPerson
+          mutation: |
+            mutation CreatePerson($data: PersonCreateInput!) {
+              createPerson(data: $data) { id }
+            }
+        - name: updatePerson
+          mutation: |
+            mutation UpdatePerson($id: ID!, $data: PersonUpdateInput!) {
+              updatePerson(id: $id, data: $data) { id }
+            }
+        - name: findCompanyByName
+          query: |
+            query FindCompany($name: StringFilter) {
+              companies(filter: { name: $name }) { edges { node { id } } }
+            }
+        - name: createCompany
+          mutation: |
+            mutation CreateCompany($data: CompanyCreateInput!) {
+              createCompany(data: $data) { id }
+            }
+        - name: findOpportunityByPersonId
+          query: |
+            query FindOpp($personId: ID!) {
+              opportunities(filter: { personId: { eq: $personId } }) {
+                edges { node { id stage } }
+              }
+            }
+        - name: createOpportunity
+          mutation: |
+            mutation CreateOpp($data: OpportunityCreateInput!) {
+              createOpportunity(data: $data) { id }
+            }
+        - name: updateOpportunity
+          mutation: |
+            mutation UpdateOpp($id: ID!, $data: OpportunityUpdateInput!) {
+              updateOpportunity(id: $id, data: $data) { id }
+            }
+        - name: createNote
+          mutation: |
+            mutation CreateNote($data: NoteCreateInput!) {
+              createNote(data: $data) { id }
+            }
+        - name: attachNoteToPerson
+          mutation: |
+            mutation AttachNote($noteId: ID!, $personId: ID!) {
+              updateNote(id: $noteId, data: { personId: $personId }) { id }
+            }
+    idempotency:
+      mechanism: upsert_by_phone
+      behavior: "find by phone → update if exists, create if not"
+    errors:
+      - code: twenty_not_configured
+        message: "TWENTY_API_KEY not set"
+        http_status: 503
+        behavior: "Log warning, return success=true (no-op)"
+      - code: graphql_error
+        message: "Twenty returned errors"
+        http_status: 502
+      - code: invalid_stage_transition
+        message: "Cannot transition to this stage"
+        http_status: 400
+    side_effects: |
+      Crea/actualiza registros en Twenty: Person, Company, Opportunity, Note.
+      NO idempotente en create (puede duplicar si se llama 2 veces rápido),
+      pero el upsert por teléfono mitiga.
+
+  # ============================================================
+  # list-calendar-slots
+  # ============================================================
+  - id: list-calendar-slots
+    name: "List Calendar Slots"
+    description: |
+      Devuelve los próximos N slots libres de 30 min en horario AR (9-19 UTC-3).
+      Intersecciona disponibilidad de todos los calendarios configurados.
+    availability:
+      - agendador
+    input:
+      schema:
+        type: object
+        properties:
+          count:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 2
+            description: "Cantidad de slots a devolver"
+          durationMinutes:
+            type: integer
+            default: 30
+            description: "Duración de cada slot"
+    output:
+      schema:
+        type: object
+        required: [slots, reason]
+        properties:
+          slots:
+            type: array
+            items:
+              type: object
+              required: [slotStartMs, humanLabel]
+              properties:
+                slotStartMs:
+                  type: integer
+                  description: "Epoch en milisegundos (13 dígitos)"
+                humanLabel:
+                  type: string
+                  description: "Ej: martes 7 de mayo a las 11:00hs (UTC-3)"
+          reason:
+            type: [string, "null"]
+            enum: [calendar_not_configured, no_free_slots, calendar_api_error, null]
+            description: "null = éxito, otro = explicación del fallo"
+    implementation:
+      type: google_calendar_api
+      auth: service_account_json
+      operations:
+        - name: freebusy_query
+          method: POST
+          endpoint: "https://www.googleapis.com/calendar/v3/freeBusy"
+          body:
+            timeMin: "{{now_iso}}"
+            timeMax: "{{now_plus_7_days_iso}}"
+            timeZone: "America/Argentina/Buenos_Aires"
+            items: "{{CALENDAR_IDS_TO_CHECK}}"
+        - name: find_slots
+          algorithm: |
+            1. Definir ventana de búsqueda: 7 días, 9-19hs AR
+            2. Dividir en slots de 30 min
+            3. Para cada slot, verificar que TODOS los calendarios estén libres
+            4. Devolver los primeros N slots libres
+    errors:
+      - code: calendar_not_configured
+        message: "GOOGLE_CALENDAR_CREDENTIALS_JSON not set"
+        http_status: 503
+      - code: no_free_slots
+        message: "No available slots in the next 7 days"
+        http_status: 200
+      - code: calendar_api_error
+        message: "Google Calendar API returned error"
+        http_status: 502
+    idempotency: true
+    side_effects: none
+    notes: |
+      El campo slotStartMs debe copiarse VERBATIM al book-calendar-event.
+      NO calcular a mano, NO usar Date.now().
+
+  # ============================================================
+  # book-calendar-event
+  # ============================================================
+  - id: book-calendar-event
+    name: "Book Calendar Event"
+    description: |
+      Crea un evento en Google Calendar con Meet auto-generado.
+      Sincroniza con Twenty (stage=MEETING) y postea nota privada en Chatwoot.
+    availability:
+      - agendador
+    input:
+      schema:
+        type: object
+        required: [slotStartMs, customerName, customerEmail, category, summary, contextNote]
+        properties:
+          slotStartMs:
+            type: integer
+            description: "Epoch en ms, COPIAR VERBATIM de list-calendar-slots"
+          customerName:
+            type: string
+          customerEmail:
+            type: string
+            format: email
+          category:
+            type: string
+            enum: [venta-capacitacion, venta-agentes, venta-consultoria]
+          summary:
+            type: string
+            description: "Título del evento, ej: FOMO – Demo con {empresa}"
+          contextNote:
+            type: string
+            description: |
+              Formato:
+              Frente: <capacitacion|agentes|consultoria>
+              Caso: <resumen>
+              Plazo: <timeline>
+              Empresa: <nombre>
+              Contacto: <nombre> <email>
+    output:
+      schema:
+        type: object
+        required: [success]
+        properties:
+          success:
+            type: boolean
+          eventId:
+            type: string
+          meetLink:
+            type: string
+            format: uri
+          twentySynced:
+            type: boolean
+          chatwootNoted:
+            type: boolean
+          error:
+            type: string
+    implementation:
+      type: google_calendar_api
+      operations:
+        - name: create_event
+          method: POST
+          endpoint: "https://www.googleapis.com/calendar/v3/calendars/{{CALENDAR_PRIMARY}}/events"
+          body:
+            summary: "{{summary}}"
+            start:
+              dateTime: "{{slotStartMs_iso}}"
+              timeZone: "America/Argentina/Buenos_Aires"
+            end:
+              dateTime: "{{slotEndMs_iso}}"
+              timeZone: "America/Argentina/Buenos_Aires"
+            attendees:
+              - email: "{{customerEmail}}"
+              - email: "{{CALENDAR_PRIMARY}}"
+            conferenceData:
+              createRequest:
+                requestId: "{{uuid}}"
+                conferenceSolutionKey: { type: hangoutsMeet }
+        - name: sync_twenty
+          tool: upsert-twenty-lead
+          params:
+            stage: MEETING
+            notes: "Demo agendada: {{meetLink}}\n{{contextNote}}"
+        - name: post_chatwoot_note
+          tool: chatwoot-handoff
+          params:
+            private: true
+            content: "Demo agendada: {{meetLink}}\n{{contextNote}}"
+    errors:
+      - code: invalid_slot
+        message: "slotStartMs not found or already taken"
+        http_status: 400
+      - code: calendar_not_configured
+        message: "Google Calendar not configured"
+        http_status: 503
+      - code: email_invalid
+        message: "customerEmail format invalid"
+        http_status: 400
+    idempotency:
+      mechanism: none
+      note: "No hay idempotencia nativa. Si se llama 2 veces, crea 2 eventos."
+    side_effects: |
+      Crea evento en Google Calendar, envía invitación por email,
+      sincroniza Twenty, postea nota en Chatwoot.
+
+  # ============================================================
+  # auto-handback
+  # ============================================================
+  - id: auto-handback
+    name: "Auto Handback"
+    description: |
+      Detecta cuando un humano ha respondido en Chatwoot y la conversación
+      debe volver al bot. Se dispara cuando el status cambia de 'open' a 'pending'.
+    availability:
+      - recepcionista
+    input:
+      schema:
+        type: object
+        required: [conversationId]
+        properties:
+          conversationId:
+            type: integer
+    output:
+      schema:
+        type: object
+        required: [handback]
+        properties:
+          handback:
+            type: boolean
+            description: "true = la conversación vuelve al bot"
+    implementation:
+      type: webhook_trigger
+      trigger: "Chatwoot status changed from 'open' to 'pending'"
+      behavior: |
+        El próximo mensaje entrante pasará el filtro (status=pending)
+        y FAMA lo procesará normalmente.
+    idempotency: true
+    side_effects: none
+    notes: |
+      No es una tool que se "llame" explícitamente. Es un mecanismo
+      del webhook handler. El humano cambia el status manualmente
+      desde el dropdown de Chatwoot.
+
+  # ============================================================
+  # send-chatwoot-message (helper interno)
+  # ============================================================
+  - id: send-chatwoot-message
+    name: "Send Chatwoot Message"
+    description: "Helper interno para enviar mensajes al cliente"
+    availability:
+      - internal
+    input:
+      schema:
+        type: object
+        required: [conversationId, content]
+        properties:
+          conversationId:
+            type: integer
+          content:
+            type: string
+            minLength: 1
+          messageType:
+            type: string
+            enum: [outgoing, incoming]
+            default: outgoing
+          private:
+            type: boolean
+            default: false
+    output:
+      schema:
+        type: object
+        required: [success]
+        properties:
+          success:
+            type: boolean
+          messageId:
+            type: integer
+    implementation:
+      type: rest_api
+      method: POST
+      endpoint: "/api/v1/accounts/{accountId}/conversations/{conversationId}/messages"
+      auth: "Bearer {{CHATWOOT_API_TOKEN}}"
+    idempotency: false
+    side_effects: "Crea mensaje en Chatwoot"
