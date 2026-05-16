@@ -1,0 +1,651 @@
+# FAMA v1 — Decision Tree
+# Fuente: fama-design-v1.md + CLAUDE.md
+# Este archivo define TODO el flujo de decisiones de FAMA como código.
+# Es ejecutable conceptualmente: cada nodo tiene condición, acción, y siguiente nodo.
+
+version: "1.0.0"
+description: |
+  Decision tree completo del agente FAMA. Cada nodo representa un punto
+  de decisión o acción en el flujo conversacional. Los nodos se ejecutan
+  secuencialmente hasta llegar a un terminal.
+
+# ============================================================
+# NODOS DE ENTRADA Y FILTRADO
+# ============================================================
+
+nodes:
+  # --- Nodo raíz ---
+  start:
+    type: entry
+    description: "Punto de entrada del webhook"
+    next: filter_webhook
+
+  # --- Filtro 6 reglas ---
+  filter_webhook:
+    type: filter
+    description: "Valida que el webhook sea procesable"
+    rules:
+      - id: rule_1
+        condition: "pathToken == expectedPathToken"
+        fail_action:
+          status: 401
+          body: { error: invalid_token }
+        fail_terminal: true
+
+      - id: rule_2
+        condition: "body.account.id == CHATWOOT_ACCOUNT_ID"
+        fail_action:
+          status: 401
+          body: { error: invalid_account }
+        fail_terminal: true
+
+      - id: rule_3
+        condition: "body.conversation.status == 'pending'"
+        fail_action:
+          status: 200
+          body: { ignored: conversation_not_pending }
+        fail_terminal: true
+
+      - id: rule_4
+        condition: "body.event == 'message_created'"
+        fail_action:
+          status: 200
+          body: { ignored: not_message_created }
+        fail_terminal: true
+
+      - id: rule_5
+        condition: "message.message_type == 0"  # 0 = incoming
+        fail_action:
+          status: 200
+          body: { ignored: not_incoming_message }
+        fail_terminal: true
+
+      - id: rule_6
+        condition: "message.sender.type == 'contact'"
+        fail_action:
+          status: 200
+          body: { ignored: not_from_contact }
+        fail_terminal: true
+
+      - id: rule_7
+        condition: "message.content.trim().length > 0"
+        fail_action:
+          status: 200
+          body: { ignored: empty_content }
+        fail_terminal: true
+
+    next: dedup_check
+
+  # --- Deduplicación ---
+  dedup_check:
+    type: guard
+    description: "Idempotencia: ¿ya procesamos este mensaje?"
+    condition: "!tryMarkProcessed(messageId)"
+    on_true:
+      action:
+        type: log
+        level: warn
+        message: "Duplicate message skipped"
+      terminal:
+        status: 200
+        body: { ignored: duplicate }
+    on_false:
+      next: circuit_breaker_check
+
+  # --- Circuit Breaker ---
+  circuit_breaker_check:
+    type: guard
+    description: "¿El circuito de LLM está abierto?"
+    condition: "llmCircuit.isOpen()"
+    on_true:
+      action:
+        type: send_message
+        content: "Disculpá, en este momento tengo un problema técnico. Te paso con el equipo y te respondemos en cuanto podamos."
+      next: handoff_fallback
+    on_false:
+      next: is_first_turn
+
+  # ============================================================
+  # PRIMER TURNO Y WELCOME
+  # ============================================================
+
+  is_first_turn:
+    type: decision
+    description: "¿Es el primer mensaje de la conversación?"
+    branches:
+      - id: first_turn_short
+        condition: "isFirstTurn && wordCount < 30"
+        next: welcome_hardcoded
+
+      - id: first_turn_long
+        condition: "isFirstTurn && wordCount >= 30"
+        next: recepcionista_process
+
+      - id: not_first_turn
+        condition: "!isFirstTurn"
+        next: recepcionista_process
+
+  welcome_hardcoded:
+    type: action
+    description: "Mensaje de bienvenida fijo (sin LLM)"
+    action:
+      type: send_message
+      content: |
+        Hola, gracias por escribirnos. Soy FAMA, del equipo FOMO.
+        Contame un poco sobre tu empresa y qué andás buscando,
+        así te puedo orientar mejor.
+    terminal:
+      status: 202
+      body: { handled: welcome }
+
+  # ============================================================
+  # RECEPCIONISTA (AGENTE PRINCIPAL)
+  # ============================================================
+
+  recepcionista_process:
+    type: agent
+    description: "FAMA Recepcionista procesa el mensaje"
+    agent: recepcionista
+    tools_available:
+      - knowledge-search
+      - chatwoot-handoff
+      - upsert-twenty-lead
+      - auto-handback
+    memory: true
+    next: recepcionista_decision
+
+  recepcionista_decision:
+    type: decision
+    description: "¿Qué decidió el Recepcionista?"
+    branches:
+      - id: simple_query
+        condition: "intent == 'consulta_simple'"
+        next: respond_direct
+
+      - id: venta_detected
+        condition: "intent == 'venta' && nivel2_completo"
+        next: delegate_backoffice
+
+      - id: nivel2_incomplete
+        condition: "intent == 'venta' && !nivel2_completo"
+        next: ask_more_data
+
+      - id: excepcion_rigida
+        condition: "intent in ['reclamo', 'urgencia', 'pedido_humano']"
+        next: handoff_inmediato
+
+      - id: off_topic
+        condition: "intent == 'off_topic'"
+        next: redirect_fomo
+
+  respond_direct:
+    type: action
+    description: "Responde con knowledge base"
+    action:
+      type: send_message
+      source: llm_response
+    terminal:
+      status: 202
+      body: { handled: direct_response }
+
+  ask_more_data:
+    type: action
+    description: "Pide datos faltantes del Nivel 2"
+    action:
+      type: send_message
+      source: llm_response
+    terminal:
+      status: 202
+      body: { handled: collecting_data }
+
+  handoff_inmediato:
+    type: action
+    description: "Handoff inmediato por excepción rígida"
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        conversationId: "{{conversationId}}"
+        category: "{{exception_category}}"
+        ackMessage: "{{ack_message}}"
+        reason: "{{reason}}"
+    next: upsert_lead_handoff
+
+  redirect_fomo:
+    type: action
+    description: "Redirige a tema FOMO"
+    action:
+      type: send_message
+      content: |
+        Acá soy FAMA del equipo FOMO, te oriento sobre nuestros servicios.
+        ¿En qué te puedo ayudar?
+    terminal:
+      status: 202
+      body: { handled: redirect }
+
+  # ============================================================
+  # BACKOFFICE (SUBAGENTE)
+  # ============================================================
+
+  delegate_backoffice:
+    type: agent
+    description: "Delega al Backoffice para clasificación"
+    agent: backoffice
+    tools_available:
+      - knowledge-search
+      - chatwoot-handoff
+      - upsert-twenty-lead
+    memory: true
+    context:
+      nivel2_data: "{{nivel2_data}}"
+      conversation_history: "{{memory}}"
+    next: backoffice_decision
+
+  backoffice_decision:
+    type: decision
+    description: "Clasificación del Backoffice"
+    branches:
+      # --- Excepciones rígidas (sobrescriben arquetipos) ---
+      - id: exc_pedido_humano
+        condition: "excepcion == 'pedido_humano'"
+        next: handoff_escalar_humano
+
+      - id: exc_consultoria
+        condition: "excepcion == 'consultoria'"
+        next: handoff_venta_consultoria
+
+      - id: exc_urgencia
+        condition: "excepcion == 'urgencia'"
+        next: handoff_urgente
+
+      - id: exc_reclamo
+        condition: "excepcion == 'reclamo'"
+        next: handoff_reclamo
+
+      - id: exc_demo
+        condition: "excepcion == 'demo'"
+        next: handoff_demo
+
+      # --- Arquetipos ---
+      - id: arq_caliente
+        condition: "arquetipo == 'caliente'"
+        next: handoff_arq1
+
+      - id: arq_explorar
+        condition: "arquetipo == 'a-explorar'"
+        next: guardar_no_escalar
+
+      - id: arq_sin_claridad
+        condition: "arquetipo == 'sin-claridad'"
+        next: seguir_conversando
+
+      - id: arq_no_lead
+        condition: "arquetipo == 'no-lead'"
+        next: derivar_email
+
+  # --- Excepciones ---
+  handoff_escalar_humano:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: escalar-humano
+        ackMessage: "Listo, te paso con alguien del equipo. Te escriben en breve."
+    next: upsert_lead_handoff
+
+  handoff_venta_consultoria:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: venta-consultoria
+        ackMessage: "Perfecto, te paso con Mariano para hablar de consultoría."
+    next: upsert_lead_meeting
+
+  handoff_urgente:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: escalar-humano
+        ackMessage: "Entendido, es urgente. Te paso con el equipo ahora mismo."
+        reason_prefix: "URGENTE — "
+    next: upsert_lead_urgente
+
+  handoff_reclamo:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: reclamo
+        ackMessage: "Disculpá las molestias. Te paso con un asesor que te va a atender."
+        include_last_messages: 3
+    next: upsert_lead_reclamo
+
+  handoff_demo:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: "{{detected_area}}"
+        ackMessage: "Perfecto, te paso con el equipo para coordinar la demo."
+    next: upsert_lead_meeting
+
+  # --- Arquetipos ---
+  handoff_arq1:
+    type: action
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: "{{detected_area}}"
+        ackMessage: "Listo, te derivo con Mariano del equipo de FOMO. Te escribe en breve."
+    next: upsert_lead_meeting
+
+  guardar_no_escalar:
+    type: action
+    description: "Guarda lead, NO escala a Chatwoot"
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: CONTACTED
+        source: whatsapp
+    next: send_info_calendly
+
+  seguir_conversando:
+    type: action
+    description: "Sigue conversando para extraer claridad"
+    action:
+      type: send_message
+      source: llm_response
+    terminal:
+      status: 202
+      body: { handled: needs_clarity }
+
+  derivar_email:
+    type: action
+    description: "No es lead, deriva a email"
+    action:
+      type: send_message
+      content: |
+        Gracias por escribir. Para esto te recomiendo escribirnos a
+        hola@fomologic.com y te responden desde ahí.
+    terminal:
+      status: 202
+      body: { handled: not_a_lead }
+
+  # ============================================================
+  # ACCIONES POST-HANDOFF / POST-GUARDADO
+  # ============================================================
+
+  upsert_lead_handoff:
+    type: action
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: "{{stage | default('CONTACTED')}}"
+        source: whatsapp
+        notes: "{{backoffice_summary}}"
+    terminal:
+      status: 202
+      body: { handled: escalated }
+
+  upsert_lead_meeting:
+    type: action
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: MEETING
+        source: whatsapp
+        notes: "{{backoffice_summary}}"
+    terminal:
+      status: 202
+      body: { handled: escalated_meeting }
+
+  upsert_lead_urgente:
+    type: action
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: MEETING
+        source: whatsapp
+        notes: "URGENTE — {{backoffice_summary}}"
+    terminal:
+      status: 202
+      body: { handled: escalated_urgent }
+
+  upsert_lead_reclamo:
+    type: action
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: CONTACTED
+        source: whatsapp
+        notes: "RECLAMO — {{backoffice_summary}}"
+    terminal:
+      status: 202
+      body: { handled: escalated_reclamo }
+
+  send_info_calendly:
+    type: action
+    description: "Envía info útil + link Calendly"
+    action:
+      type: send_message
+      content: |
+        {{knowledge_response}}
+
+        Si querés, podemos coordinar una demo de 30 min: {{CALENDLY_LINK}}
+    terminal:
+      status: 202
+      body: { handled: saved_no_escalation }
+
+  handoff_fallback:
+    type: action
+    description: "Handoff cuando circuit breaker está abierto"
+    action:
+      type: tool_call
+      tool: chatwoot-handoff
+      params:
+        category: escalar-humano
+        ackMessage: "Disculpá, en este momento tengo un problema técnico. Te paso con el equipo."
+    terminal:
+      status: 202
+      body: { handled: circuit_breaker_fallback }
+
+  # ============================================================
+  # NURTURING WORKER (PROCESO EN PARALELO)
+  # ============================================================
+
+  nurturing_tick:
+    type: scheduled
+    description: "Worker que corre cada 15 minutos"
+    cron: "*/15 * * * *"
+    entry: nurturing_evaluate
+
+  nurturing_evaluate:
+    type: decision
+    description: "Evalúa conversaciones pendientes"
+    for_each: "pending_conversations"
+    branches:
+      - id: skip_open
+        condition: "chatwoot_status == 'open'"
+        action:
+          type: mark_escalated
+        terminal: true
+
+      - id: skip_business_hours
+        condition: "!isInArgentinaBusinessHours()"
+        terminal: true
+
+      - id: retry_1
+        condition: "retryCount == 0 && idleMs >= 4h"
+        next: send_retry_1
+
+      - id: retry_2
+        condition: "retryCount == 1 && idleMs >= 22h"
+        next: send_retry_2
+
+      - id: mark_lost
+        condition: "retryCount >= 2 && idleMs >= 24h"
+        next: mark_lead_lost
+
+  send_retry_1:
+    type: action
+    action:
+      type: send_message
+      content: |
+        Hola, te quería retomar la conversación.
+        {{#if CALENDLY_LINK}}
+        Si querés, podemos coordinar una demo de 30 min: {{CALENDLY_LINK}}
+        {{else}}
+        Si querés, te coordinamos una demo de 30 min con el equipo.
+        {{/if}}
+    next: increment_retry
+
+  send_retry_2:
+    type: action
+    action:
+      type: send_message
+      content: |
+        Hola, te quería retomar la conversación.
+        {{#if CALENDLY_LINK}}
+        Si querés, podemos coordinar una demo de 30 min: {{CALENDLY_LINK}}
+        {{else}}
+        Si querés, te coordinamos una demo de 30 min con el equipo.
+        {{/if}}
+    next: increment_retry
+
+  increment_retry:
+    type: action
+    action:
+      type: db_update
+      table: nurturing_conversations
+      set:
+        retry_count: "retry_count + 1"
+        last_retry_at: "now()"
+    terminal: true
+
+  mark_lead_lost:
+    type: action
+    action:
+      type: tool_call
+      tool: upsert-twenty-lead
+      params:
+        stage: LOST
+        notes: "no respondió a follow-ups"
+    next: mark_nurturing_done
+
+  mark_nurturing_done:
+    type: action
+    action:
+      type: db_update
+      table: nurturing_conversations
+      set:
+        status: done
+    terminal: true
+
+# ============================================================
+# VARIABLES Y CONTEXTO
+# ============================================================
+
+context:
+  nivel2_required_fields:
+    - empresa_identificada      # nombre o rubro
+    - caso_de_uso               # problema concreto
+    - tamaño_aproximado         # empleados, clientes, etc.
+    - timeline                  # urgente, este trimestre, explorando
+
+  arquetipos:
+    caliente:
+      description: "Empresa + caso + timeline + seriedad"
+      stage: MEETING
+      escalate: true
+
+    a-explorar:
+      description: "Empresa + caso plausible, timeline ambiguo"
+      stage: CONTACTED
+      escalate: false
+
+    sin-claridad:
+      description: "Faltan datos críticos"
+      stage: NEW
+      escalate: false
+      max_turns: 3
+
+    no-lead:
+      description: "Off-topic, prensa, partnerships, soporte ajeno"
+      stage: null
+      escalate: false
+
+  excepciones:
+    pedido_humano:
+      triggers: ["quiero hablar con alguien", "llamame", "agendemos call", "reunión"]
+      category: escalar-humano
+
+    consultoria:
+      triggers: ["consultoría", "asesoramiento estratégico", "diagnóstico de procesos"]
+      category: venta-consultoria
+
+    urgencia:
+      triggers: ["urgente", "necesito ya", "esta semana", "tengo plazo"]
+      category: escalar-humano
+      prefix: "URGENTE — "
+
+    reclamo:
+      triggers: ["queja", "no funciona", "frustración", "error"]
+      category: reclamo
+      include_last_messages: 3
+
+    demo:
+      triggers: ["quiero una demo", "podemos agendar", "calendly"]
+      action: "handoff si nivel2 completo, sino guarda + Calendly"
+
+  labels_chatwoot:
+    - escalar-humano
+    - venta-capacitacion
+    - venta-agentes
+    - venta-consultoria
+    - reclamo
+    - urgencia
+    - nurturing
+    - no-lead
+
+  pipeline_twenty:
+    - NEW
+    - CONTACTED
+    - MEETING
+    - PROPOSAL
+    - WON
+    - LOST
+
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
+
+config:
+  welcome_word_threshold: 30
+  nurturing:
+    interval_minutes: 15
+    retry_1_after_hours: 4
+    retry_2_after_hours: 22
+    mark_lost_after_hours: 24
+    business_hours:
+      timezone: "America/Argentina/Buenos_Aires"
+      start: "09:00"
+      end: "19:00"
+  circuit_breaker:
+    failure_threshold: 3
+    failure_window_seconds: 60
+    recovery_seconds: 300
+  handoff:
+    lock_duration_seconds: 60

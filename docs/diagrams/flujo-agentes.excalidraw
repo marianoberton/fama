@@ -1,0 +1,1103 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "fama-agent",
+  "elements": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 350,
+      "y": 20,
+      "width": 500,
+      "height": 35,
+      "text": "FAMA \u2014 Flujo de Agentes",
+      "fontSize": 28,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "originalText": "FAMA \u2014 Flujo de Agentes",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "in",
+      "x": 420,
+      "y": 90,
+      "width": 200,
+      "height": 60,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e7f5ff",
+      "fillStyle": "solid",
+      "strokeColor": "#1971c2",
+      "boundElements": [
+        {
+          "id": "t_in",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_in",
+      "x": 425,
+      "y": 100,
+      "width": 190,
+      "height": 40,
+      "text": "Mensaje entrante\n(WhatsApp/Web)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "in",
+      "originalText": "Mensaje entrante\n(WhatsApp/Web)",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "rec",
+      "x": 370,
+      "y": 200,
+      "width": 300,
+      "height": 140,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_rec",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_rec",
+      "x": 375,
+      "y": 210,
+      "width": 290,
+      "height": 120,
+      "text": "RECEPCIONISTA\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\u2022 auto-handback",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "rec",
+      "originalText": "RECEPCIONISTA\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\u2022 auto-handback",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_in_rec",
+      "x": 520,
+      "y": 150,
+      "width": 0,
+      "height": 50,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          50
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "diamond",
+      "id": "d1",
+      "x": 470,
+      "y": 380,
+      "width": 200,
+      "height": 100,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d1",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d1",
+      "x": 475,
+      "y": 400,
+      "width": 190,
+      "height": 60,
+      "text": "\u00bfIntenci\u00f3n de\nventa detectada?",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d1",
+      "originalText": "\u00bfIntenci\u00f3n de\nventa detectada?",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_rec_d1",
+      "x": 520,
+      "y": 340,
+      "width": 0,
+      "height": 40,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          40
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "rectangle",
+      "id": "resp",
+      "x": 100,
+      "y": 390,
+      "width": 180,
+      "height": 80,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeColor": "#2b8a3e",
+      "boundElements": [
+        {
+          "id": "t_resp",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_resp",
+      "x": 105,
+      "y": 405,
+      "width": 170,
+      "height": 50,
+      "text": "Responde directo\n(knowledge base)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "resp",
+      "originalText": "Responde directo\n(knowledge base)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d1_no",
+      "x": 470,
+      "y": 430,
+      "width": 170,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -170,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d1",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "resp",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_d1_no",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d1_no",
+      "x": 340,
+      "y": 415,
+      "width": 60,
+      "height": 20,
+      "text": "NO",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#2b8a3e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d1_no",
+      "originalText": "NO",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "hand1",
+      "x": 100,
+      "y": 520,
+      "width": 180,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_hand1",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_hand1",
+      "x": 105,
+      "y": 530,
+      "width": 170,
+      "height": 50,
+      "text": "Handoff inmediato\n(reclamo/urgencia)",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "hand1",
+      "originalText": "Handoff inmediato\n(reclamo/urgencia)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_rec_hand1",
+      "x": 370,
+      "y": 270,
+      "width": 0,
+      "height": 250,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          250
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "rec",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "hand1",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_rec_hand1",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_rec_hand1",
+      "x": 250,
+      "y": 380,
+      "width": 110,
+      "height": 20,
+      "text": "Excepci\u00f3n r\u00edgida",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#c92a2a",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_rec_hand1",
+      "originalText": "Excepci\u00f3n r\u00edgida",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "back",
+      "x": 750,
+      "y": 200,
+      "width": 300,
+      "height": 160,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_back",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_back",
+      "x": 755,
+      "y": 210,
+      "width": 290,
+      "height": 140,
+      "text": "BACKOFFICE\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\u2022 auto-handback\n\nDiscovery + Clasificaci\u00f3n",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "back",
+      "originalText": "BACKOFFICE\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\u2022 auto-handback\n\nDiscovery + Clasificaci\u00f3n",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d1_si",
+      "x": 670,
+      "y": 430,
+      "width": 80,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d1",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "back",
+        "fixedPoint": [
+          0,
+          0.8
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_d1_si",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d1_si",
+      "x": 690,
+      "y": 415,
+      "width": 60,
+      "height": 20,
+      "text": "SI \u2192",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#5f3dc4",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d1_si",
+      "originalText": "SI \u2192",
+      "autoResize": true
+    },
+    {
+      "type": "diamond",
+      "id": "d2",
+      "x": 850,
+      "y": 400,
+      "width": 200,
+      "height": 100,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d2",
+      "x": 855,
+      "y": 420,
+      "width": 190,
+      "height": 60,
+      "text": "\u00bfQuiere\ncoordinar demo?",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d2",
+      "originalText": "\u00bfQuiere\ncoordinar demo?",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_back_d2",
+      "x": 950,
+      "y": 360,
+      "width": 0,
+      "height": 40,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          40
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "rectangle",
+      "id": "close",
+      "x": 1150,
+      "y": 410,
+      "width": 180,
+      "height": 80,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#495057",
+      "boundElements": [
+        {
+          "id": "t_close",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_close",
+      "x": 1155,
+      "y": 420,
+      "width": 170,
+      "height": 60,
+      "text": "Cierra conversaci\u00f3n\no Nurturing",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "close",
+      "originalText": "Cierra conversaci\u00f3n\no Nurturing",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d2_no",
+      "x": 1050,
+      "y": 450,
+      "width": 100,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d2",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "close",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_d2_no",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d2_no",
+      "x": 1070,
+      "y": 435,
+      "width": 60,
+      "height": 20,
+      "text": "NO",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d2_no",
+      "originalText": "NO",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "hand2",
+      "x": 750,
+      "y": 550,
+      "width": 200,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_hand2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_hand2",
+      "x": 755,
+      "y": 560,
+      "width": 190,
+      "height": 50,
+      "text": "Handoff a humano\n(excepci\u00f3n / no-lead)",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "hand2",
+      "originalText": "Handoff a humano\n(excepci\u00f3n / no-lead)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_back_hand2",
+      "x": 850,
+      "y": 360,
+      "width": 0,
+      "height": 190,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          190
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "back",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "hand2",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_back_hand2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_back_hand2",
+      "x": 800,
+      "y": 440,
+      "width": 100,
+      "height": 20,
+      "text": "Excepci\u00f3n r\u00edgida",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#c92a2a",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_back_hand2",
+      "originalText": "Excepci\u00f3n r\u00edgida",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "agen",
+      "x": 1150,
+      "y": 200,
+      "width": 280,
+      "height": 140,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_agen",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_agen",
+      "x": 1155,
+      "y": 210,
+      "width": 270,
+      "height": 120,
+      "text": "AGENDADOR\n(gpt-4o-mini)\n\n\u2022 list-calendar-slots\n\u2022 book-calendar-event\n\u2022 chatwoot-handoff\n\nCoordinaci\u00f3n de demos",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "agen",
+      "originalText": "AGENDADOR\n(gpt-4o-mini)\n\n\u2022 list-calendar-slots\n\u2022 book-calendar-event\n\u2022 chatwoot-handoff\n\nCoordinaci\u00f3n de demos",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d2_si",
+      "x": 1050,
+      "y": 430,
+      "width": 100,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d2",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "endBinding": {
+        "elementId": "agen",
+        "fixedPoint": [
+          0,
+          0.7
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_d2_si",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d2_si",
+      "x": 1060,
+      "y": 380,
+      "width": "80",
+      "height": 20,
+      "text": "SI \u2192 delega",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#5f3dc4",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d2_si",
+      "originalText": "SI \u2192 delega",
+      "autoResize": true
+    },
+    {
+      "type": "diamond",
+      "id": "d3",
+      "x": 1220,
+      "y": 400,
+      "width": 200,
+      "height": 100,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d3",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d3",
+      "x": 1225,
+      "y": 420,
+      "width": 190,
+      "height": 60,
+      "text": "\u00bfPudo\nagendar?",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d3",
+      "originalText": "\u00bfPudo\nagendar?",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_agen_d3",
+      "x": 1320,
+      "y": 340,
+      "width": 0,
+      "height": 60,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          60
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "rectangle",
+      "id": "evt",
+      "x": 1520,
+      "y": 410,
+      "width": 200,
+      "height": 80,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeColor": "#2b8a3e",
+      "boundElements": [
+        {
+          "id": "t_evt",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_evt",
+      "x": 1525,
+      "y": 420,
+      "width": 190,
+      "height": 60,
+      "text": "Evento creado\nGCal + Meet + Twenty",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "evt",
+      "originalText": "Evento creado\nGCal + Meet + Twenty",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d3_si",
+      "x": 1420,
+      "y": 450,
+      "width": 100,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d3",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "evt",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_d3_si",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_d3_si",
+      "x": 1440,
+      "y": 435,
+      "width": 60,
+      "height": 20,
+      "text": "SI",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#2b8a3e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d3_si",
+      "originalText": "SI",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "hand3",
+      "x": 1220,
+      "y": 560,
+      "width": 200,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_hand3",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_hand3",
+      "x": 1225,
+      "y": 570,
+      "width": 190,
+      "height": 50,
+      "text": "Handoff a humano\n(sin slots / error)",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "hand3",
+      "originalText": "Handoff a humano\n(sin slots / error)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d3_no",
+      "x": 1320,
+      "y": 500,
+      "width": 0,
+      "height": 60,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          60
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d3",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "hand3",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_d3_no",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_d3_no",
+      "x": 1330,
+      "y": 520,
+      "width": 60,
+      "height": 20,
+      "text": "NO",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#c92a2a",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d3_no",
+      "originalText": "NO",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "ahb",
+      "x": 50,
+      "y": 650,
+      "width": 400,
+      "height": 60,
+      "text": "Auto-handback: Cuando un humano responde en Chatwoot,\nla conversaci\u00f3n vuelve al Recepcionista autom\u00e1ticamente.",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "Auto-handback: Cuando un humano responde en Chatwoot,\nla conversaci\u00f3n vuelve al Recepcionista autom\u00e1ticamente.",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_loop",
+      "x": 190,
+      "y": 555,
+      "width": 0,
+      "height": 80,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "text",
+      "id": "t_loop",
+      "x": 200,
+      "y": 580,
+      "width": 120,
+      "height": 20,
+      "text": "\u2190 vuelve a Recp.",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "middle",
+      "originalText": "\u2190 vuelve a Recp.",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "leg",
+      "x": 700,
+      "y": 650,
+      "width": 500,
+      "height": 80,
+      "text": "Leyenda:\n  Violeta = Agente Mastra\n  Verde = \u00c9xito / Respuesta directa\n  Rojo = Escalaci\u00f3n a humano\n  Amarillo = Decisi\u00f3n\n  Gris = Cierre / Nurturing",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "Leyenda:\n  Violeta = Agente Mastra\n  Verde = \u00c9xito / Respuesta directa\n  Rojo = Escalaci\u00f3n a humano\n  Amarillo = Decisi\u00f3n\n  Gris = Cierre / Nurturing",
+      "autoResize": true
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

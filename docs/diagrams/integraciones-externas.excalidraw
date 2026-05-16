@@ -1,0 +1,775 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "fama-agent",
+  "elements": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 450,
+      "y": 20,
+      "width": 500,
+      "height": 35,
+      "text": "FAMA \u2014 Integraciones Externas",
+      "fontSize": 28,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "originalText": "FAMA \u2014 Integraciones Externas",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "fama",
+      "x": 500,
+      "y": 200,
+      "width": 280,
+      "height": 180,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_fama",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_fama",
+      "x": 505,
+      "y": 220,
+      "width": 270,
+      "height": 140,
+      "text": "FAMA\n(Mastra Agents)\n\n\u2022 Recepcionista\n\u2022 Backoffice\n\u2022 Agendador\n\n+ 10 Tools",
+      "fontSize": 15,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "fama",
+      "originalText": "FAMA\n(Mastra Agents)\n\n\u2022 Recepcionista\n\u2022 Backoffice\n\u2022 Agendador\n\n+ 10 Tools",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "cw",
+      "x": 100,
+      "y": 100,
+      "width": 260,
+      "height": 180,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeColor": "#e8590c",
+      "boundElements": [
+        {
+          "id": "t_cw",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_cw",
+      "x": 105,
+      "y": 110,
+      "width": 250,
+      "height": 160,
+      "text": "Chatwoot \u2605 CR\u00cdTICO\n(Gateway WhatsApp)\n\n\u2022 POST /webhooks\n\u2022 POST /messages\n\u2022 POST /labels\n\u2022 POST /toggle_status\n\u2022 POST /assignments\n\u2022 GET /conversations",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cw",
+      "originalText": "Chatwoot \u2605 CR\u00cdTICO\n(Gateway WhatsApp)\n\n\u2022 POST /webhooks\n\u2022 POST /messages\n\u2022 POST /labels\n\u2022 POST /toggle_status\n\u2022 POST /assignments\n\u2022 GET /conversations",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_cw_fama",
+      "x": 360,
+      "y": 190,
+      "width": 140,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          140,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "cw",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          0,
+          0.3
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_cw_fama",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_cw_fama",
+      "x": 380,
+      "y": 170,
+      "width": 100,
+      "height": 20,
+      "text": "Webhook inbound",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_cw_fama",
+      "originalText": "Webhook inbound",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_fama_cw",
+      "x": 360,
+      "y": 250,
+      "width": 140,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          140,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "cw",
+        "fixedPoint": [
+          1,
+          0.7
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_fama_cw",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_fama_cw",
+      "x": 380,
+      "y": 230,
+      "width": 100,
+      "height": 20,
+      "text": "API outbound",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_fama_cw",
+      "originalText": "API outbound",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "twenty",
+      "x": 100,
+      "y": 380,
+      "width": 260,
+      "height": 200,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeColor": "#e8590c",
+      "boundElements": [
+        {
+          "id": "t_twenty",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_twenty",
+      "x": 105,
+      "y": 390,
+      "width": 250,
+      "height": 180,
+      "text": "Twenty CRM \u2605 CR\u00cdTICO\n(Pipeline Leads)\n\n\u2022 findPersonByPhone\n\u2022 createPerson / updatePerson\n\u2022 findCompanyByName\n\u2022 createOpportunity\n\u2022 updateOpportunity\n\u2022 createNote / attachNote\n\u2022 Stages: NEW \u2192 WON",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "twenty",
+      "originalText": "Twenty CRM \u2605 CR\u00cdTICO\n(Pipeline Leads)\n\n\u2022 findPersonByPhone\n\u2022 createPerson / updatePerson\n\u2022 findCompanyByName\n\u2022 createOpportunity\n\u2022 updateOpportunity\n\u2022 createNote / attachNote\n\u2022 Stages: NEW \u2192 WON",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_fama_twenty",
+      "x": 500,
+      "y": 380,
+      "width": 0,
+      "height": 100,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          100
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          0.2,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "twenty",
+        "fixedPoint": [
+          0.8,
+          0
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_fama_twenty",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_fama_twenty",
+      "x": 420,
+      "y": 410,
+      "width": 80,
+      "height": 20,
+      "text": "GraphQL",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_fama_twenty",
+      "originalText": "GraphQL",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "gcal",
+      "x": 500,
+      "y": 450,
+      "width": 260,
+      "height": 140,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_gcal",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_gcal",
+      "x": 505,
+      "y": 460,
+      "width": 250,
+      "height": 120,
+      "text": "Google Calendar \u25cb OPCIONAL\n(Agendamiento)\n\n\u2022 freebusy.query\n\u2022 events.insert\n\u2022 Meet auto-generated\n\u2022 Service Account JSON",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "gcal",
+      "originalText": "Google Calendar \u25cb OPCIONAL\n(Agendamiento)\n\n\u2022 freebusy.query\n\u2022 events.insert\n\u2022 Meet auto-generated\n\u2022 Service Account JSON",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_fama_gcal",
+      "x": 580,
+      "y": 380,
+      "width": 0,
+      "height": 70,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          70
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "gcal",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "lang",
+      "x": 920,
+      "y": 100,
+      "width": 240,
+      "height": 140,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_lang",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_lang",
+      "x": 925,
+      "y": 110,
+      "width": 230,
+      "height": 120,
+      "text": "Langfuse \u25cb OPCIONAL\n(Observabilidad)\n\n\u2022 Traces por conversaci\u00f3n\n\u2022 Tool calls como spans\n\u2022 Session = conversationId\n\u2022 Self-hosted o cloud",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "lang",
+      "originalText": "Langfuse \u25cb OPCIONAL\n(Observabilidad)\n\n\u2022 Traces por conversaci\u00f3n\n\u2022 Tool calls como spans\n\u2022 Session = conversationId\n\u2022 Self-hosted o cloud",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_fama_lang",
+      "x": 780,
+      "y": 200,
+      "width": 140,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          140,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          1,
+          0.3
+        ]
+      },
+      "endBinding": {
+        "elementId": "lang",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_fama_lang",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_fama_lang",
+      "x": 820,
+      "y": 180,
+      "width": 60,
+      "height": 20,
+      "text": "Export",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_fama_lang",
+      "originalText": "Export",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "libsql",
+      "x": 920,
+      "y": 320,
+      "width": 240,
+      "height": 120,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeColor": "#e8590c",
+      "boundElements": [
+        {
+          "id": "t_libsql",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_libsql",
+      "x": 925,
+      "y": 330,
+      "width": 230,
+      "height": 100,
+      "text": "LibSQL \u2605 CR\u00cdTICO\n(Memoria Mastra)\n\n\u2022 Conversaciones\n\u2022 Contexto hist\u00f3rico\n\u2022 Local file / Docker volume",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "libsql",
+      "originalText": "LibSQL \u2605 CR\u00cdTICO\n(Memoria Mastra)\n\n\u2022 Conversaciones\n\u2022 Contexto hist\u00f3rico\n\u2022 Local file / Docker volume",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_fama_libsql",
+      "x": 780,
+      "y": 340,
+      "width": 140,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          140,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          1,
+          0.7
+        ]
+      },
+      "endBinding": {
+        "elementId": "libsql",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "openai",
+      "x": 520,
+      "y": 20,
+      "width": 240,
+      "height": 100,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeColor": "#e8590c",
+      "boundElements": [
+        {
+          "id": "t_openai",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_openai",
+      "x": 525,
+      "y": 30,
+      "width": 230,
+      "height": 80,
+      "text": "OpenAI \u2605 CR\u00cdTICO\n(gpt-4o-mini)\n\n\u2022 3 agentes\n\u2022 generate() + tools",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "openai",
+      "originalText": "OpenAI \u2605 CR\u00cdTICO\n(gpt-4o-mini)\n\n\u2022 3 agentes\n\u2022 generate() + tools",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_openai_fama",
+      "x": 640,
+      "y": 120,
+      "width": 0,
+      "height": 80,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "openai",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "fama",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "labels",
+      "x": 50,
+      "y": 620,
+      "width": 400,
+      "height": 80,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_labels",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_labels",
+      "x": 55,
+      "y": 630,
+      "width": 390,
+      "height": 60,
+      "text": "Labels Chatwoot: escalar-humano | venta-capacitacion | venta-agentes | venta-consultoria | nurturing | no-lead",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "labels",
+      "originalText": "Labels Chatwoot: escalar-humano | venta-capacitacion | venta-agentes | venta-consultoria | nurturing | no-lead",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_cw_labels",
+      "x": 230,
+      "y": 280,
+      "width": 0,
+      "height": 340,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          340
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "cw",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "labels",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "rectangle",
+      "id": "stages",
+      "x": 520,
+      "y": 620,
+      "width": 400,
+      "height": 80,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_stages",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_stages",
+      "x": 525,
+      "y": 630,
+      "width": 390,
+      "height": 60,
+      "text": "Pipeline Twenty: NEW \u2192 CONTACTED \u2192 MEETING \u2192 PROPOSAL \u2192 WON / LOST",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "stages",
+      "originalText": "Pipeline Twenty: NEW \u2192 CONTACTED \u2192 MEETING \u2192 PROPOSAL \u2192 WON / LOST",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_twenty_stages",
+      "x": 230,
+      "y": 580,
+      "width": 290,
+      "height": 40,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          290,
+          40
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "twenty",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "stages",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "text",
+      "id": "leg",
+      "x": 50,
+      "y": 730,
+      "width": 600,
+      "height": 60,
+      "text": "\u2605 CR\u00cdTICO = Sin esto FAMA no funciona\n\u25cb OPCIONAL = FAMA funciona en modo degradado (handoff a humano)",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "\u2605 CR\u00cdTICO = Sin esto FAMA no funciona\n\u25cb OPCIONAL = FAMA funciona en modo degradado (handoff a humano)",
+      "autoResize": true
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

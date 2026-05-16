@@ -1,0 +1,1483 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "fama-agent",
+  "elements": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 500,
+      "y": 10,
+      "width": 600,
+      "height": 40,
+      "text": "FAMA v1 \u2014 Dise\u00f1o Completo (fuente: fama-design-v1.md)",
+      "fontSize": 26,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "originalText": "FAMA v1 \u2014 Dise\u00f1o Completo (fuente: fama-design-v1.md)",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "in",
+      "x": 520,
+      "y": 70,
+      "width": 200,
+      "height": 60,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e7f5ff",
+      "fillStyle": "solid",
+      "strokeColor": "#1971c2",
+      "boundElements": [
+        {
+          "id": "t_in",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_in",
+      "x": 525,
+      "y": 80,
+      "width": 190,
+      "height": 40,
+      "text": "Mensaje entrante\nWhatsApp/Web",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "in",
+      "originalText": "Mensaje entrante\nWhatsApp/Web",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "filtro",
+      "x": 470,
+      "y": 160,
+      "width": 300,
+      "height": 100,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_filtro",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_filtro",
+      "x": 475,
+      "y": 170,
+      "width": 290,
+      "height": 80,
+      "text": "FILTRO 6 REGLAS\n\n1. Path token \u2713\n2. Account ID \u2713\n3. Status = 'pending'\n4. event = message_created\n5. message_type = 0 (incoming)\n6. sender = contact",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "filtro",
+      "originalText": "FILTRO 6 REGLAS\n\n1. Path token \u2713\n2. Account ID \u2713\n3. Status = 'pending'\n4. event = message_created\n5. message_type = 0 (incoming)\n6. sender = contact",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_in_filtro",
+      "x": 620,
+      "y": 130,
+      "width": 0,
+      "height": 30,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "diamond",
+      "id": "d_dedup",
+      "x": 545,
+      "y": 290,
+      "width": 150,
+      "height": 80,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d_dedup",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d_dedup",
+      "x": 550,
+      "y": 305,
+      "width": 140,
+      "height": 50,
+      "text": "\u00bfYa\nprocesado?",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d_dedup",
+      "originalText": "\u00bfYa\nprocesado?",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_filtro_dedup",
+      "x": 620,
+      "y": 260,
+      "width": 0,
+      "height": 30,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "rectangle",
+      "id": "dup_skip",
+      "x": 200,
+      "y": 300,
+      "width": 140,
+      "height": 60,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_dup_skip",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_dup_skip",
+      "x": 205,
+      "y": 310,
+      "width": 130,
+      "height": 40,
+      "text": "200 OK\n(silencioso)",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "dup_skip",
+      "originalText": "200 OK\n(silencioso)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_dup_no",
+      "x": 545,
+      "y": 330,
+      "width": 205,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -205,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_dedup",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "dup_skip",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_dup_no",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_dup_no",
+      "x": 400,
+      "y": 315,
+      "width": 60,
+      "height": 20,
+      "text": "SI \u2192 skip",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#868e96",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_dup_no",
+      "originalText": "SI \u2192 skip",
+      "autoResize": true
+    },
+    {
+      "type": "diamond",
+      "id": "d_first",
+      "x": 720,
+      "y": 290,
+      "width": 160,
+      "height": 80,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d_first",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d_first",
+      "x": 725,
+      "y": "300",
+      "width": 150,
+      "height": 60,
+      "text": "\u00bfPrimer\nturno?",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d_first",
+      "originalText": "\u00bfPrimer\nturno?",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_dedup_first",
+      "x": 695,
+      "y": 330,
+      "width": 25,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          25,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_dedup",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "d_first",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_dedup_first",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_dedup_first",
+      "x": 700,
+      "y": 315,
+      "width": 20,
+      "height": 20,
+      "text": "NO",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#2b8a3e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_dedup_first",
+      "originalText": "NO",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "welcome",
+      "x": 950,
+      "y": 200,
+      "width": 220,
+      "height": 100,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeColor": "#2b8a3e",
+      "boundElements": [
+        {
+          "id": "t_welcome",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_welcome",
+      "x": 955,
+      "y": 210,
+      "width": 210,
+      "height": 80,
+      "text": "WELCOME\nHARDCODEADO\n\nSolo si < 30 palabras\n\"Hola, soy FAMA...\"",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "welcome",
+      "originalText": "WELCOME\nHARDCODEADO\n\nSolo si < 30 palabras\n\"Hola, soy FAMA...\"",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_first_welcome",
+      "x": 880,
+      "y": 290,
+      "width": 70,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          70,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_first",
+        "fixedPoint": [
+          1,
+          0.3
+        ]
+      },
+      "endBinding": {
+        "elementId": "welcome",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_first_welcome",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_first_welcome",
+      "x": 890,
+      "y": 270,
+      "width": 50,
+      "height": 20,
+      "text": "SI +\n<30 pal",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#2b8a3e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_first_welcome",
+      "originalText": "SI +\n<30 pal",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "rec",
+      "x": 720,
+      "y": 420,
+      "width": 280,
+      "height": 160,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_rec",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_rec",
+      "x": 725,
+      "y": 430,
+      "width": 270,
+      "height": 140,
+      "text": "RECEPCIONISTA FAMA\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 Detecta intenci\u00f3n\n\u2022 Recolecta Nivel 2:\n  empresa, caso, tama\u00f1o, timeline\n\u2022 Delega a Backoffice",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "rec",
+      "originalText": "RECEPCIONISTA FAMA\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 Detecta intenci\u00f3n\n\u2022 Recolecta Nivel 2:\n  empresa, caso, tama\u00f1o, timeline\n\u2022 Delega a Backoffice",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_first_rec",
+      "x": 800,
+      "y": 370,
+      "width": 0,
+      "height": 50,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          50
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_first",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "rec",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "d_nivel2",
+      "x": 755,
+      "y": 620,
+      "width": 210,
+      "height": 90,
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_d_nivel2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_d_nivel2",
+      "x": 760,
+      "y": 635,
+      "width": 200,
+      "height": 60,
+      "text": "\u00bfNivel 2\ncompleto?\n(4 datos)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d_nivel2",
+      "originalText": "\u00bfNivel 2\ncompleto?\n(4 datos)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_rec_d2",
+      "x": 860,
+      "y": 580,
+      "width": 0,
+      "height": 40,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          40
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057"
+    },
+    {
+      "type": "rectangle",
+      "id": "sigue",
+      "x": 1050,
+      "y": 630,
+      "width": 180,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_sigue",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_sigue",
+      "x": 1055,
+      "y": 640,
+      "width": 170,
+      "height": 50,
+      "text": "Sigue conversando\n(pide datos)",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "sigue",
+      "originalText": "Sigue conversando\n(pide datos)",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d2_no",
+      "x": 965,
+      "y": 665,
+      "width": 85,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          85,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_nivel2",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "sigue",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_d2_no",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_d2_no",
+      "x": 990,
+      "y": 650,
+      "width": "40",
+      "height": 20,
+      "text": "NO",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#868e96",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d2_no",
+      "originalText": "NO",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_sigue_rec",
+      "x": 1140,
+      "y": 630,
+      "width": 0,
+      "height": 210,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          -210
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "sigue",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "endBinding": {
+        "elementId": "rec",
+        "fixedPoint": [
+          1,
+          0.8
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "rectangle",
+      "id": "back",
+      "x": 400,
+      "y": 420,
+      "width": 260,
+      "height": 180,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#d0bfff",
+      "fillStyle": "solid",
+      "strokeColor": "#5f3dc4",
+      "boundElements": [
+        {
+          "id": "t_back",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_back",
+      "x": 405,
+      "y": 430,
+      "width": 250,
+      "height": 160,
+      "text": "BACKOFFICE\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\nClasifica:\n4 arquetipos + 5 excepciones",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "back",
+      "originalText": "BACKOFFICE\n(gpt-4o-mini)\n\n\u2022 knowledge-search\n\u2022 chatwoot-handoff\n\u2022 upsert-twenty-lead\n\nClasifica:\n4 arquetipos + 5 excepciones",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_d2_si",
+      "x": 755,
+      "y": 665,
+      "width": 95,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -95,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "d_nivel2",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "back",
+        "fixedPoint": [
+          1,
+          0.7
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "t_a_d2_si",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_a_d2_si",
+      "x": 680,
+      "y": 650,
+      "width": "50",
+      "height": 20,
+      "text": "SI \u2192",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#5f3dc4",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a_d2_si",
+      "originalText": "SI \u2192",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "arq_title",
+      "x": 50,
+      "y": 380,
+      "width": 200,
+      "height": 25,
+      "text": "ARQUETIPOS",
+      "fontSize": 18,
+      "fontFamily": 1,
+      "strokeColor": "#5f3dc4",
+      "textAlign": "left",
+      "verticalAlign": "middle",
+      "originalText": "ARQUETIPOS",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "arq1",
+      "x": 50,
+      "y": 420,
+      "width": 280,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeColor": "#2b8a3e",
+      "boundElements": [
+        {
+          "id": "t_arq1",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_arq1",
+      "x": 55,
+      "y": 425,
+      "width": 270,
+      "height": 60,
+      "text": "Arq.1 \u2014 Lead CALIENTE\nStage: MEETING/PROPOSAL\nAcci\u00f3n: handoff + Twenty",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arq1",
+      "originalText": "Arq.1 \u2014 Lead CALIENTE\nStage: MEETING/PROPOSAL\nAcci\u00f3n: handoff + Twenty",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "arq2",
+      "x": 50,
+      "y": 510,
+      "width": 280,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#fff3bf",
+      "fillStyle": "solid",
+      "strokeColor": "#f08c00",
+      "boundElements": [
+        {
+          "id": "t_arq2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_arq2",
+      "x": 55,
+      "y": 515,
+      "width": 270,
+      "height": 60,
+      "text": "Arq.2 \u2014 A EXPLORAR\nStage: CONTACTED\nAcci\u00f3n: guarda Twenty, NO escala",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arq2",
+      "originalText": "Arq.2 \u2014 A EXPLORAR\nStage: CONTACTED\nAcci\u00f3n: guarda Twenty, NO escala",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "arq3",
+      "x": 50,
+      "y": 600,
+      "width": 280,
+      "height": 70,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_arq3",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_arq3",
+      "x": 55,
+      "y": 605,
+      "width": 270,
+      "height": 60,
+      "text": "Arq.3 \u2014 SIN CLARIDAD\nStage: NEW (despu\u00e9s)\nAcci\u00f3n: sigue conversando",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arq3",
+      "originalText": "Arq.3 \u2014 SIN CLARIDAD\nStage: NEW (despu\u00e9s)\nAcci\u00f3n: sigue conversando",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "arq4",
+      "x": 50,
+      "y": 690,
+      "width": 280,
+      "height": 60,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_arq4",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_arq4",
+      "x": 55,
+      "y": 695,
+      "width": 270,
+      "height": 50,
+      "text": "Arq.4 \u2014 NO ES LEAD\nAcci\u00f3n: deriva a hola@fomologic.com",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arq4",
+      "originalText": "Arq.4 \u2014 NO ES LEAD\nAcci\u00f3n: deriva a hola@fomologic.com",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_back_arqs",
+      "x": 400,
+      "y": 510,
+      "width": 70,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -70,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "back",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "arq2",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "text",
+      "id": "exc_title",
+      "x": 50,
+      "y": 780,
+      "width": 250,
+      "height": 25,
+      "text": "EXCEPCIONES R\u00cdGIDAS",
+      "fontSize": 18,
+      "fontFamily": 1,
+      "strokeColor": "#c92a2a",
+      "textAlign": "left",
+      "verticalAlign": "middle",
+      "originalText": "EXCEPCIONES R\u00cdGIDAS",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "exc1",
+      "x": 50,
+      "y": 820,
+      "width": 200,
+      "height": 50,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_exc1",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_exc1",
+      "x": 55,
+      "y": 825,
+      "width": 190,
+      "height": 40,
+      "text": "1. Pide humano \u2192 handoff",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "exc1",
+      "originalText": "1. Pide humano \u2192 handoff",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "exc2",
+      "x": 270,
+      "y": 820,
+      "width": 200,
+      "height": 50,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_exc2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_exc2",
+      "x": 275,
+      "y": 825,
+      "width": 190,
+      "height": 40,
+      "text": "2. Consultor\u00eda \u2192 handoff",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "exc2",
+      "originalText": "2. Consultor\u00eda \u2192 handoff",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "exc3",
+      "x": 490,
+      "y": 820,
+      "width": 200,
+      "height": 50,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_exc3",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_exc3",
+      "x": 495,
+      "y": 825,
+      "width": 190,
+      "height": 40,
+      "text": "3. Urgencia \u2192 handoff URGENTE",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "exc3",
+      "originalText": "3. Urgencia \u2192 handoff URGENTE",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "exc4",
+      "x": 710,
+      "y": 820,
+      "width": 200,
+      "height": 50,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_exc4",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_exc4",
+      "x": 715,
+      "y": 825,
+      "width": 190,
+      "height": 40,
+      "text": "4. Reclamo \u2192 handoff + nota",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "exc4",
+      "originalText": "4. Reclamo \u2192 handoff + nota",
+      "autoResize": true
+    },
+    {
+      "type": "rectangle",
+      "id": "exc5",
+      "x": 930,
+      "y": 820,
+      "width": 200,
+      "height": 50,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_exc5",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_exc5",
+      "x": 935,
+      "y": 825,
+      "width": 190,
+      "height": 40,
+      "text": "5. Demo/Calendly \u2192 handoff",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "exc5",
+      "originalText": "5. Demo/Calendly \u2192 handoff",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_back_exc",
+      "x": 530,
+      "y": 600,
+      "width": 0,
+      "height": 220,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          220
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "back",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "exc3",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "rectangle",
+      "id": "handoff",
+      "x": 400,
+      "y": 920,
+      "width": 260,
+      "height": 100,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffc9c9",
+      "fillStyle": "solid",
+      "strokeColor": "#c92a2a",
+      "boundElements": [
+        {
+          "id": "t_handoff",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_handoff",
+      "x": 405,
+      "y": "930",
+      "width": 250,
+      "height": 80,
+      "text": "HANDOFF Chatwoot\n\n1. ack p\u00fablico al cliente\n2. label\n3. nota privada\n4. asignar team\n5. toggle status open",
+      "fontSize": 11,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "handoff",
+      "originalText": "HANDOFF Chatwoot\n\n1. ack p\u00fablico al cliente\n2. label\n3. nota privada\n4. asignar team\n5. toggle status open",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_exc_handoff",
+      "x": 590,
+      "y": 870,
+      "width": 0,
+      "height": 50,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          50
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "exc3",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "handoff",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "nurture",
+      "x": 1050,
+      "y": 820,
+      "width": 240,
+      "height": 120,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeColor": "#e8590c",
+      "boundElements": [
+        {
+          "id": "t_nurture",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_nurture",
+      "x": 1055,
+      "y": 830,
+      "width": 230,
+      "height": 100,
+      "text": "NURTURING WORKER\n(cada 15 min)\n\n\u2022 Retry 1: 4hs idle\n\u2022 Retry 2: 22hs idle\n\u2022 Marca LOST despu\u00e9s",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "nurture",
+      "originalText": "NURTURING WORKER\n(cada 15 min)\n\n\u2022 Retry 1: 4hs idle\n\u2022 Retry 2: 22hs idle\n\u2022 Marca LOST despu\u00e9s",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_nurture",
+      "x": 1140,
+      "y": 820,
+      "width": 0,
+      "height": 100,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          -100
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "nurture",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "endBinding": {
+        "elementId": "sigue",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "rectangle",
+      "id": "cb",
+      "x": 1050,
+      "y": 420,
+      "width": 220,
+      "height": 100,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#e9ecef",
+      "fillStyle": "solid",
+      "strokeColor": "#868e96",
+      "boundElements": [
+        {
+          "id": "t_cb",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_cb",
+      "x": 1055,
+      "y": 430,
+      "width": 210,
+      "height": 80,
+      "text": "CIRCUIT BREAKER\n(LLM)\n\n3 fallas / 60s \u2192\n5 min fallback",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cb",
+      "originalText": "CIRCUIT BREAKER\n(LLM)\n\n3 fallas / 60s \u2192\n5 min fallback",
+      "autoResize": true
+    },
+    {
+      "type": "arrow",
+      "id": "a_cb_rec",
+      "x": 1000,
+      "y": 500,
+      "width": 50,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          50,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#495057",
+      "startBinding": {
+        "elementId": "rec",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "cb",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "strokeStyle": "dotted"
+    },
+    {
+      "type": "text",
+      "id": "ahb",
+      "x": 50,
+      "y": 1050,
+      "width": 500,
+      "height": 50,
+      "text": "AUTO-HANDBACK: Cuando humano cambia status a 'pending' en Chatwoot,\nFAMA retoma la conversaci\u00f3n autom\u00e1ticamente.",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "AUTO-HANDBACK: Cuando humano cambia status a 'pending' en Chatwoot,\nFAMA retoma la conversaci\u00f3n autom\u00e1ticamente.",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "leg",
+      "x": 750,
+      "y": 1050,
+      "width": 600,
+      "height": 100,
+      "text": "LEYENDA:\n  \ud83d\udfe6 Entrada de usuario    \ud83d\udfe8 Filtro/Decisi\u00f3n    \ud83d\udfe9 \u00c9xito/Respuesta\n  \ud83d\udfea Agente Mastra          \ud83d\udfe7 Worker/Integraci\u00f3n  \u2b1c Skip/No-op\n  \ud83d\udfe5 Handoff/Escalaci\u00f3n     \u00b7\u00b7\u00b7\u00b7\u00b7 Flujo alternativo",
+      "fontSize": 12,
+      "fontFamily": 1,
+      "strokeColor": "#495057",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "LEYENDA:\n  \ud83d\udfe6 Entrada de usuario    \ud83d\udfe8 Filtro/Decisi\u00f3n    \ud83d\udfe9 \u00c9xito/Respuesta\n  \ud83d\udfea Agente Mastra          \ud83d\udfe7 Worker/Integraci\u00f3n  \u2b1c Skip/No-op\n  \ud83d\udfe5 Handoff/Escalaci\u00f3n     \u00b7\u00b7\u00b7\u00b7\u00b7 Flujo alternativo",
+      "autoResize": true
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}
