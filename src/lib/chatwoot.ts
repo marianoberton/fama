@@ -1,5 +1,6 @@
 import { loadEnv } from '../config/env.js';
 import { CircuitBreaker, CircuitOpenError } from './circuit-breaker.js';
+import { logger } from './logger.js';
 
 export class ChatwootNotConfiguredError extends Error {
   constructor() {
