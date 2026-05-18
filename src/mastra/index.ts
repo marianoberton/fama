@@ -14,6 +14,7 @@ import {
   waitForBackgroundDrain,
 } from '../lib/background-tracker.js';
 import { logger } from '../lib/logger.js';
+import { collectMetrics } from '../lib/metrics.js';
 
 // Validate env at startup so a misconfigured deploy fails fast and loud,
 // not on the first incoming webhook.
@@ -75,6 +76,14 @@ export const mastra = new Mastra({
       // Note: Mastra ya expone GET /health built-in que devuelve {success:true}.
       // Lo usamos directamente para el healthcheck del container — no hace falta
       // route propia.
+      registerApiRoute('/metrics', {
+        method: 'GET',
+        requiresAuth: false,
+        handler: async (c) => {
+          const metrics = await collectMetrics();
+          return c.json(metrics, 200);
+        },
+      }),
       registerApiRoute('/v1/webhooks/chatwoot/:token', {
         method: 'POST',
         requiresAuth: false,
