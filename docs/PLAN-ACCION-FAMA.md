@@ -91,17 +91,43 @@
 
 ---
 
-### Fase 2: Observabilidad y métricas (en curso)
+### Fase 2: Observabilidad y métricas ✅ Completada
 **Quién:** Claude Code para implementación + Hermes para integración VPS
 
 | # | Tarea | Estado |
 |---|-------|--------|
-| 6 | Langfuse self-hosted en VPS | ✅ Código listo, pendiente setup VPS |
+| 6 | Langfuse self-hosted en VPS | ✅ Código listo, pendiente setup VPS (ops Mariano) |
 | 7 | Circuit breakers (LLM + Chatwoot) | ✅ Hecho |
 | 8 | Graceful shutdown | ✅ Hecho |
 | 9 | Eval set sistemático (5 casos canónicos) | ✅ Hecho |
-| 10 | Métricas básicas: leads/día, conversión, tiempo de respuesta | ⬜ Pendiente |
-| 11 | Dashboard simple (endpoint JSON o HTML) | ⬜ Pendiente |
+| 10 | Métricas básicas: endpoint GET /metrics | ✅ Hecho (uptime, leads/día, threads, avg LLM ms, nurturing, circuit breakers) |
+| 11 | Dashboard HTML | ❌ No necesario — ops usa /metrics vía browser o Chatwoot sidebar iframe |
+
+---
+
+### Fase 2.5: Web Chat — Elena en la web de FOMO ✅ En curso
+**Objetivo:** FAMA responde mensajes de la web de fomo.com.ar además de WhatsApp. Es la base del producto Elena que FOMO vende a clientes.
+
+**Por qué es la misma arquitectura que Elena**: cuando un cliente compra Elena, lo que recibe es una instancia de FAMA conectada a su Chatwoot con el widget embed en su web. El multi-inbox ya está implementado.
+
+**Cambio de código completado:**
+- `CHATWOOT_INBOX_ID` (número único) → `CHATWOOT_INBOX_IDS` (lista separada por comas, e.g. `"3,5"`)
+- Known-customer detection ahora reconoce clientes cross-channel (WhatsApp ↔ web)
+- Auto-handback worker escanea todos los inboxes configurados
+- El filtro del webhook ya no necesita cambios — no filtra por inbox_id
+
+**Pasos operacionales para Mariano (sin código):**
+
+| Paso | Cómo | Tiempo |
+|------|------|--------|
+| 1. Crear inbox "Web" en Chatwoot | Settings → Inboxes → New Inbox → Website → nombre "FOMO Web" | 2 min |
+| 2. Conectar agent bot al inbox | Settings → Agent Bots → FAMA → conectar al nuevo inbox | 1 min |
+| 3. Anotar el nuevo inbox_id | Settings → Inboxes → ver ID del inbox creado (será 4 o el siguiente) | 30 s |
+| 4. Actualizar `.env` en VPS | `CHATWOOT_INBOX_IDS=3,<nuevo_id>` (antes era `CHATWOOT_INBOX_ID=3`) | 1 min |
+| 5. Reiniciar container | `docker compose up -d --force-recreate` | 1 min |
+| 6. Pegar script embed en fomologic.com.ar | Copiar el `<script>` del inbox web y pegarlo en el `<head>` del sitio | 5-10 min |
+
+**Resultado:** Visitantes de fomologic.com.ar chatean con FAMA directo. Misma lógica, mismo backoffice, mismo CRM (Twenty).
 
 ---
 
@@ -160,6 +186,6 @@ Todos los agentes usan OpenAI. Si se quiere migrar a Claude (Anthropic), Mastra 
 
 ## 6. Próximo paso
 
-Las métricas básicas (Fase 2, ítems 10-11) o el benchmark de modelos (Fase 3) son los candidatos más concretos.
+**Operacional (Mariano):** Seguir los 6 pasos de la Fase 2.5 para activar el web chat en fomologic.com.ar. No requiere más código, solo configuración en Chatwoot + embed script en el sitio.
 
-¿Por cuál arrancamos?
+**Código (Claude Code):** Fase 3 — benchmark de modelos (gpt-4o-mini vs claude-haiku-4-5 para recepcionista, gpt-4o vs claude-sonnet-4-6 para backoffice).

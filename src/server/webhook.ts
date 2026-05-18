@@ -126,7 +126,7 @@ async function processMessageBackground(
     const kc = await resolveKnownCustomer({
       contactId: message.contactId,
       conversationId: message.conversationId,
-      inboxId: env.CHATWOOT_INBOX_ID,
+      inboxIds: env.CHATWOOT_INBOX_IDS,
     });
     knownContext = kc.knownContext;
   }

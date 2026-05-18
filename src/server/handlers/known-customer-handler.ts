@@ -11,16 +11,16 @@ import { logger } from '../../lib/logger.js';
 export async function resolveKnownCustomer(input: {
   contactId: number;
   conversationId: number;
-  inboxId: number;
+  inboxIds: number[];
 }): Promise<{ knownContext: string | null }> {
-  const { contactId, conversationId, inboxId } = input;
+  const { contactId, conversationId, inboxIds } = input;
   try {
     const conversations = await getContactConversations({ contactId });
     const now = Date.now();
     const signal = detectKnownCustomer({
       conversations,
       now,
-      inboxId,
+      inboxIds,
       excludeConversationId: conversationId,
     });
     if (signal.known) {

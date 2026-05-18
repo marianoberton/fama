@@ -26,7 +26,9 @@ export interface KnownCustomerSignal {
 export interface DetectInput {
   conversations: ChatwootConversationSummary[];
   now: number;
-  inboxId: number;
+  /** All inbox IDs managed by FAMA. A prior conversation in any of these counts
+   *  as prior history — enables cross-channel recognition (WhatsApp ↔ web). */
+  inboxIds: number[];
   windowDays?: number;
   minMessages?: number;
   excludeConversationId?: number;
@@ -41,7 +43,7 @@ export function detectKnownCustomer(input: DetectInput): KnownCustomerSignal {
     if (input.excludeConversationId !== undefined && c.id === input.excludeConversationId) {
       return false;
     }
-    if (c.inboxId !== input.inboxId) return false;
+    if (!input.inboxIds.includes(c.inboxId)) return false;
     if (c.messageCount < minMessages) return false;
     if (c.lastActivityAtMs < cutoff) return false;
     return true;

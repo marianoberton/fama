@@ -24,7 +24,7 @@ const mockToggleStatus = vi.mocked(toggleChatwootStatus);
 const fakeEnv = {
   CHATWOOT_TEAM_ID: 1,
   CHATWOOT_ACCOUNT_ID: 1,
-  CHATWOOT_INBOX_ID: 3,
+  CHATWOOT_INBOX_IDS: [3],
   CHATWOOT_BASE_URL: 'https://chat.fomo.com.ar',
   CHATWOOT_AGENT_BOT_ID: 2,
   CHATWOOT_PATH_TOKEN: 'tok',

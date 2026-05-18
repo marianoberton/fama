@@ -43,10 +43,18 @@ export interface AutoHandbackWorkerHandle {
 async function runTick(now: number, inactivityThresholdMs: number): Promise<void> {
   const env = loadEnv();
 
-  const conversations = await listConversationsByStatus({
-    status: 'open',
-    inboxId: env.CHATWOOT_INBOX_ID,
-  });
+  // Fetch open conversations for all managed inboxes and deduplicate by id.
+  const seen = new Set<number>();
+  const conversations: Awaited<ReturnType<typeof listConversationsByStatus>> = [];
+  for (const inboxId of env.CHATWOOT_INBOX_IDS) {
+    const rows = await listConversationsByStatus({ status: 'open', inboxId });
+    for (const c of rows) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        conversations.push(c);
+      }
+    }
+  }
 
   if (conversations.length === 0) return;
 

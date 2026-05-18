@@ -5,7 +5,21 @@ const envSchema = z.object({
 
   CHATWOOT_BASE_URL: z.string().url(),
   CHATWOOT_ACCOUNT_ID: z.coerce.number().int().positive(),
-  CHATWOOT_INBOX_ID: z.coerce.number().int().positive(),
+  // Comma-separated list of Chatwoot inbox IDs managed by FAMA (e.g. "3,5").
+  // Supports multiple inboxes so FAMA can handle both WhatsApp and web chat
+  // (Elena product foundation). The webhook filter does NOT gate by inbox_id —
+  // all inboxes connected to the agent bot pass through. Workers (auto-handback,
+  // nurturing) and known-customer detection use this list to scope their queries.
+  CHATWOOT_INBOX_IDS: z
+    .string()
+    .min(1, 'CHATWOOT_INBOX_IDS is required (e.g. "3" or "3,5")')
+    .transform((s) =>
+      s
+        .split(',')
+        .map((id) => parseInt(id.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0),
+    )
+    .refine((ids) => ids.length > 0, 'CHATWOOT_INBOX_IDS must contain at least one valid inbox ID'),
   CHATWOOT_AGENT_BOT_ID: z.coerce.number().int().positive(),
   CHATWOOT_TEAM_ID: z.coerce.number().int().positive(),
   CHATWOOT_PATH_TOKEN: z.string().min(1, 'CHATWOOT_PATH_TOKEN is required'),

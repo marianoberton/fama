@@ -9,7 +9,7 @@ const NOW = Date.UTC(2026, 4, 3, 12, 0, 0); // 2026-05-03T12:00:00Z
 describe('detectKnownCustomer', () => {
   it('returns known=false when conversations is empty', () => {
     expect(
-      detectKnownCustomer({ conversations: [], now: NOW, inboxId: 3 }),
+      detectKnownCustomer({ conversations: [], now: NOW, inboxIds: [3] }),
     ).toEqual({ known: false, count: 0, lastConversationAt: null });
   });
 
@@ -19,7 +19,7 @@ describe('detectKnownCustomer', () => {
         { id: 1, inboxId: 99, messageCount: 5, lastActivityAtMs: NOW - 86_400_000 },
       ],
       now: NOW,
-      inboxId: 3,
+      inboxIds: [3],
     });
     expect(out.known).toBe(false);
   });
@@ -30,7 +30,7 @@ describe('detectKnownCustomer', () => {
         { id: 1, inboxId: 3, messageCount: 1, lastActivityAtMs: NOW - 86_400_000 },
       ],
       now: NOW,
-      inboxId: 3,
+      inboxIds: [3],
     });
     expect(out.known).toBe(false);
   });
@@ -46,7 +46,7 @@ describe('detectKnownCustomer', () => {
         },
       ],
       now: NOW,
-      inboxId: 3,
+      inboxIds: [3],
     });
     expect(out.known).toBe(false);
   });
@@ -57,7 +57,7 @@ describe('detectKnownCustomer', () => {
         { id: 4248, inboxId: 3, messageCount: 5, lastActivityAtMs: NOW - 86_400_000 },
       ],
       now: NOW,
-      inboxId: 3,
+      inboxIds: [3],
       excludeConversationId: 4248,
     });
     expect(out.known).toBe(false);
@@ -70,7 +70,7 @@ describe('detectKnownCustomer', () => {
         { id: 2, inboxId: 3, messageCount: 6, lastActivityAtMs: NOW - 3 * 86_400_000 },
       ],
       now: NOW,
-      inboxId: 3,
+      inboxIds: [3],
     });
     expect(out).toEqual({
       known: true,

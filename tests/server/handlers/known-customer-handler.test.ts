@@ -32,13 +32,13 @@ describe('resolveKnownCustomer', () => {
     const result = await resolveKnownCustomer({
       contactId: 91,
       conversationId: 4248,
-      inboxId: 3,
+      inboxIds: [3],
     });
 
     expect(result).toEqual({ knownContext: null });
     expect(mockGetConversations).toHaveBeenCalledWith({ contactId: 91 });
     expect(mockDetect).toHaveBeenCalledWith(
-      expect.objectContaining({ inboxId: 3, excludeConversationId: 4248 }),
+      expect.objectContaining({ inboxIds: [3], excludeConversationId: 4248 }),
     );
   });
 
@@ -53,7 +53,7 @@ describe('resolveKnownCustomer', () => {
     const result = await resolveKnownCustomer({
       contactId: 91,
       conversationId: 4248,
-      inboxId: 3,
+      inboxIds: [3],
     });
 
     expect(result.knownContext).toContain('[CONTEXTO_SISTEMA]');
@@ -68,7 +68,7 @@ describe('resolveKnownCustomer', () => {
     const result = await resolveKnownCustomer({
       contactId: 91,
       conversationId: 4248,
-      inboxId: 3,
+      inboxIds: [3],
     });
 
     expect(result).toEqual({ knownContext: null });
@@ -84,7 +84,7 @@ describe('resolveKnownCustomer', () => {
     const result = await resolveKnownCustomer({
       contactId: 91,
       conversationId: 4248,
-      inboxId: 3,
+      inboxIds: [3],
     });
 
     expect(result).toEqual({ knownContext: null });
@@ -94,7 +94,7 @@ describe('resolveKnownCustomer', () => {
     mockGetConversations.mockResolvedValue([]);
     mockDetect.mockReturnValue({ known: false, count: 0, lastConversationAt: 0 });
 
-    await resolveKnownCustomer({ contactId: 7, conversationId: 9999, inboxId: 3 });
+    await resolveKnownCustomer({ contactId: 7, conversationId: 9999, inboxIds: [3] });
 
     expect(mockDetect).toHaveBeenCalledWith(
       expect.objectContaining({ excludeConversationId: 9999 }),
